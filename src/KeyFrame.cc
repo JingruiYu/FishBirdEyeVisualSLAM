@@ -248,6 +248,21 @@ set<MapPoint*> KeyFrame::GetMapPoints()
     return s;
 }
 
+int KeyFrame::GetMapPointsInlierNum()
+{
+    int inliers = 0;
+    unique_lock<mutex> lock(mMutexFeatures);
+    {
+        for (size_t i = 0; i < mvpMapPoints.size(); i++)
+        {
+            MapPoint* pMP = mvpMapPoints[i];
+            if (pMP)
+                inliers++;            
+        }
+    }
+    return inliers;
+}
+
 int KeyFrame::TrackedMapPoints(const int &minObs)
 {
     unique_lock<mutex> lock(mMutexFeatures);

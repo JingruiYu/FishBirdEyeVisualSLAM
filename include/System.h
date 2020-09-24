@@ -82,7 +82,8 @@ public:
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
     // Input odomPose: 2D odometry pose consisting of (x, y, theta).
     // Returns the camera pose (empty if tracking fails).
-    cv::Mat TrackMonocularWithOdom(const cv::Mat &im, cv::Vec3d odomPose, const double &timestamp);
+    cv::Mat TrackMonocularWithOdom(const cv::Mat &im, const cv::Mat &birdview, const cv::Mat &birdviewmask, const cv::Mat &birdviewContour, 
+                                    const cv::Mat &birdviewContourICP, cv::Vec3d gtPose, cv::Vec3d odomPose, const double &timestamp);
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     void ActivateLocalizationMode();

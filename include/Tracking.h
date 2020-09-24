@@ -116,6 +116,7 @@ public:
     std::vector<cv::Point2f> mvbPrevMatched;
     std::vector<cv::Point3f> mvIniP3D;
     Frame mInitialFrame;
+    Frame mReInitFrame;
 
     // Lists used to recover the full camera trajectory at the end of the execution.
     // Basically we store the reference keyframe for each frame and its relative transformation
@@ -126,10 +127,13 @@ public:
 
     // True if local mapping is deactivated and we are performing only localization
     bool mbOnlyTracking;
+    bool IsReInit;
 
     pcl::visualization::PCLVisualizer::Ptr Twc_ptr_;
 
     void Reset();
+
+    cv::Mat GetPriorMotion();
 
 protected:
 
@@ -142,6 +146,7 @@ protected:
     // Map initialization for monocular
     void MonocularInitialization();
     void CreateInitialMapMonocular();
+    bool CreateReInitialMapPoints();
 
     void CheckReplacedInLastFrame();
     bool TrackReferenceKeyFrame();
@@ -149,6 +154,7 @@ protected:
     bool TrackWithMotionModel();
 
     bool Relocalization();
+    bool ReInitialization();
 
     void UpdateLocalMap();
     void UpdateLocalPoints();
@@ -180,6 +186,7 @@ protected:
 
     // Initalization (only for monocular)
     Initializer* mpInitializer;
+    Initializer* mpReInitial;
 
     //Local Map
     KeyFrame* mpReferenceKF;

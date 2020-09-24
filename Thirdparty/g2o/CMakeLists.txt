@@ -97,6 +97,13 @@ g2o/types/types_seven_dof_expmap.h
 g2o/types/se3quat.h
 g2o/types/se3_ops.h
 g2o/types/se3_ops.hpp
+#modified types
+g2o/types/vertex_se3_quat.h
+g2o/types/vertex_se3_quat.cpp
+g2o/types/se3quat_gradients.h
+g2o/types/se3quat_gradients.cpp
+g2o/types/edge_se3_quat.h
+g2o/types/edge_se3_quat.cpp
 #core
 g2o/core/base_edge.h
 g2o/core/base_binary_edge.h

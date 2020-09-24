@@ -274,7 +274,8 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
 }
 
 /********************* Modified Here *********************/
-cv::Mat System::TrackMonocularWithOdom(const cv::Mat &im, cv::Vec3d odomPose, const double &timestamp)
+cv::Mat System::TrackMonocularWithOdom(const cv::Mat &im, const cv::Mat &birdview, const cv::Mat &birdviewmask, const cv::Mat &birdviewContour, 
+                                    const cv::Mat &birdviewContourICP, cv::Vec3d gtPose, cv::Vec3d odomPose, const double &timestamp)
 {
     if(mSensor!=MONOCULAR)
     {
@@ -317,7 +318,7 @@ cv::Mat System::TrackMonocularWithOdom(const cv::Mat &im, cv::Vec3d odomPose, co
     }
 
     //cv::Mat Tcw = mpTracker->GrabImageMonocular(im,timestamp);
-    cv::Mat Tcw = mpTracker->GrabImageMonocularWithOdom(im,timestamp,odomPose);
+    cv::Mat Tcw = mpTracker->GrabImageMonocularWithOdom(im,timestamp,gtPose);
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;

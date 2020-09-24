@@ -1,0 +1,10 @@
+/Data/
+/build/
+/lib/
+*.txt
+Examples/Monocular/mono_encoder
+Thirdparty/DBoW2/build/
+Thirdparty/DBoW2/lib/
+Thirdparty/g2o/build/
+Thirdparty/g2o/lib/
+Vocabulary/
