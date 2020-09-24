@@ -5,3 +5,6 @@ the original, Only Front Mono.
 
 v0.1:
 Using the Encoder code, Get the prior T. Good Performance.
+
+v0.2:
+Lost and ReInit. No test. 
