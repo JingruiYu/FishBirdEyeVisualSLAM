@@ -39,6 +39,17 @@ Initializer::Initializer(const Frame &ReferenceFrame, float sigma, int iteration
     mSigma = sigma;
     mSigma2 = sigma*sigma;
     mMaxIterations = iterations;
+
+    /********************* Modified Here *********************/
+    if(ReferenceFrame.mbHaveOdom)
+    {
+        mbHaveOdom=true;
+        mOdomPose1=ReferenceFrame.mOdomPose;
+    }
+    else
+    {
+        mbHaveOdom=false;
+    }
 }
 
 bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatches12, cv::Mat &R21, cv::Mat &t21,
@@ -47,6 +58,12 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     // Fill structures with current keypoints and matches with reference frame
     // Reference Frame: 1, Current Frame: 2
     mvKeys2 = CurrentFrame.mvKeysUn;
+
+    /********************* Modified Here *********************/
+    if(mbHaveOdom)
+    {
+        mOdomPose2=CurrentFrame.mOdomPose;
+    }
 
     mvMatches12.clear();
     mvMatches12.reserve(mvKeys2.size());
@@ -175,7 +192,7 @@ void Initializer::FindHomography(vector<bool> &vbMatchesInliers, float &score, c
 void Initializer::FindFundamental(vector<bool> &vbMatchesInliers, float &score, cv::Mat &F21)
 {
     // Number of putative matches
-    const int N = vbMatchesInliers.size();
+    const int N = mvMatches12.size();
 
     // Normalize coordinates
     vector<cv::Point2f> vPn1, vPn2;
@@ -481,7 +498,47 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
     cv::Mat R1, R2, t;
 
     // Recover the 4 motion hypotheses
-    DecomposeE(E21,R1,R2,t);  
+    DecomposeE(E21,R1,R2,t);
+
+    /********************* Modified Here *********************/
+    //if we have odometry information, use it to fix the scale of t
+    // if(mbHaveOdom)
+    // {
+    //     cv::Mat T21=Frame::GetTransformFromOdometer(mOdomPose1,mOdomPose2);
+    //     cv::Vec2d trans1=cv::Vec2d(T21.at<float>(0,3),T21.at<float>(1,3));
+    //     cout<<"trans1 = "<<trans1<<endl;
+    //     cv::Vec2d trans2=cv::Vec2d(t.at<float>(0,0),t.at<float>(1,0));
+    //     cout<<"trans2 = "<<trans2<<endl;
+    //     //since we are initializing here, the world frame is the same as 
+    //     //the camera frame 1, and the translation 't' between frame 1 and frame 2 
+    //     //equals 'trans' in the xy plane projection.
+    //     double dist1=sqrt(trans1[0]*trans1[0]+trans1[1]*trans1[1]);
+    //     double dist2=sqrt(trans2[0]*trans2[0]+trans2[1]*trans2[1]);
+    //     cout<<"dist1 = "<<dist1<<" , dist2 = "<<dist2<<endl;
+
+    //     double scale=0;
+    //     scale=dist1/dist2;
+        
+    //     if(scale>0)
+    //     {
+    //         cout<<"scale = "<<scale<<endl;
+    //         cout<<"before scale: t = "<<t.t()<<endl;
+    //         t=t*scale;
+    //         cout<<"after scale: t = "<<t.t()<<endl;
+    //     }
+    // }
+
+    if(mbHaveOdom)
+    {
+        cv::Mat T21=Frame::GetTransformFromOdometer(mOdomPose1,mOdomPose2).inv();
+        cv::Mat R3=T21.rowRange(0,3).colRange(0,3);
+        cv::Mat t_odom=T21.rowRange(0,3).col(3);
+        double scale=t_odom.dot(t);
+        t=t*scale;
+        cout<<"scale = "<<scale<<" , cos(theta) = "<<scale/cv::norm(t_odom)<<endl;
+        cout<<"R1/R3 = "<<0.5*(cv::trace(R1.t()*R3)[0]-1)<<endl;
+        cout<<"R2/R3 = "<<0.5*(cv::trace(R2.t()*R3)[0]-1)<<endl;
+    }
 
     cv::Mat t1=t;
     cv::Mat t2=-t;

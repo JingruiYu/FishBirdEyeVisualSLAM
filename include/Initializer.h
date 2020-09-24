@@ -82,6 +82,11 @@ private:
     vector<Match> mvMatches12;
     vector<bool> mvbMatched1;
 
+    /********************* Modified Here *********************/
+    // Odometry Pose from Reference Frame (Frame 1) and Current Frame (Frame 2)
+    cv::Vec3d mOdomPose1, mOdomPose2;
+    bool mbHaveOdom;
+
     // Calibration
     cv::Mat mK;
 

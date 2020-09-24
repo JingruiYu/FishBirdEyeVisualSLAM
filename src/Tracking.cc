@@ -18,12 +18,12 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
-
 #include "Tracking.h"
 
 #include<opencv2/core/core.hpp>
 #include<opencv2/features2d/features2d.hpp>
-
+//#include<eigen3/Eigen/Core>
+//#include<eigen3/Eigen/Geometry>
 #include"ORBmatcher.h"
 #include"FrameDrawer.h"
 #include"Converter.h"
@@ -32,19 +32,25 @@
 
 #include"Optimizer.h"
 #include"PnPsolver.h"
+#include "simple_birdseye_odometer.h"
 
 #include<iostream>
-
+#include <unistd.h>
 #include<mutex>
 
 
 using namespace std;
 
+extern bool bTightCouple;
+extern bool bLooseCouple;
+
 namespace ORB_SLAM2
 {
 
 Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor):
-    mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(false), mbVO(false), mpORBVocabulary(pVoc),
+    mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(false), 
+    Twc_ptr_(new pcl::visualization::PCLVisualizer("Twc_viewer")),
+    mbVO(false), mpORBVocabulary(pVoc),
     mpKeyFrameDB(pKFDB), mpInitializer(static_cast<Initializer*>(NULL)), mpSystem(pSys), mpViewer(NULL),
     mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpMap(pMap), mnLastRelocFrameId(0)
 {
@@ -145,6 +151,13 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
         else
             mDepthMapFactor = 1.0f/mDepthMapFactor;
     }
+
+    int v1(0);
+    Twc_ptr_->createViewPort(0.0, 0.0, 1.0, 1.0, v1);
+    Twc_ptr_->createViewPortCamera(v1);
+    Twc_ptr_->setBackgroundColor(0, 0, 0, v1);
+    Twc_ptr_->addCoordinateSystem(1.0, 0.0, 0.0, 0.3, "vehicle_frame", v1);
+    Twc_ptr_->addCoordinateSystem(1.0, 0.0, 0.0, 0.0, "map_frame", v1);
 
 }
 
@@ -258,6 +271,36 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
         mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
     else
         mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+
+    Track();
+
+    return mCurrentFrame.mTcw.clone();
+}
+
+/********************* Modified Here *********************/
+cv::Mat Tracking::GrabImageMonocularWithOdom(const cv::Mat &im, const double &timestamp, cv::Vec3d odomPose)
+{
+    mImGray = im;
+
+    if(mImGray.channels()==3)
+    {
+        if(mbRGB)
+            cvtColor(mImGray,mImGray,CV_RGB2GRAY);
+        else
+            cvtColor(mImGray,mImGray,CV_BGR2GRAY);
+    }
+    else if(mImGray.channels()==4)
+    {
+        if(mbRGB)
+            cvtColor(mImGray,mImGray,CV_RGBA2GRAY);
+        else
+            cvtColor(mImGray,mImGray,CV_BGRA2GRAY);
+    }
+
+    if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
+        mCurrentFrame = Frame(mImGray,timestamp,odomPose,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+    else
+        mCurrentFrame = Frame(mImGray,timestamp,odomPose,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
     Track();
 
@@ -408,6 +451,9 @@ void Tracking::Track()
             if(bOK && !mbVO)
                 bOK = TrackLocalMap();
         }
+
+        DrawCurPose(mCurrentFrame.mTcw,0,150,0,"PoseAfterLocalMap");
+        DrawGT(0,0,150,"GroundTruth");
 
         if(bOK)
             mState = OK;
@@ -576,8 +622,8 @@ void Tracking::MonocularInitialization()
 
             if(mpInitializer)
                 delete mpInitializer;
-
-            mpInitializer =  new Initializer(mCurrentFrame,1.0,200);
+            // number of RANSAC iterations here
+            mpInitializer =  new Initializer(mCurrentFrame,1.0,400);
 
             fill(mvIniMatches.begin(),mvIniMatches.end(),-1);
 
@@ -682,33 +728,44 @@ void Tracking::CreateInitialMapMonocular()
 
     // Bundle Adjustment
     cout << "New Map created with " << mpMap->MapPointsInMap() << " points" << endl;
-
-    Optimizer::GlobalBundleAdjustemnt(mpMap,20);
-
-    // Set median depth to 1
-    float medianDepth = pKFini->ComputeSceneMedianDepth(2);
-    float invMedianDepth = 1.0f/medianDepth;
-
-    if(medianDepth<0 || pKFcur->TrackedMapPoints(1)<100)
+    
+    /********************* Modified Here *********************/
+    if(mCurrentFrame.mbHaveOdom&&bTightCouple)
     {
-        cout << "Wrong initialization, reseting..." << endl;
-        Reset();
-        return;
+        // Optimizer::GlobalBundleAdjustemntWithOdom(mpMap,20);
+        Optimizer::GlobalBundleAdjustemnt(mpMap,20);
     }
-
-    // Scale initial baseline
-    cv::Mat Tc2w = pKFcur->GetPose();
-    Tc2w.col(3).rowRange(0,3) = Tc2w.col(3).rowRange(0,3)*invMedianDepth;
-    pKFcur->SetPose(Tc2w);
-
-    // Scale points
-    vector<MapPoint*> vpAllMapPoints = pKFini->GetMapPointMatches();
-    for(size_t iMP=0; iMP<vpAllMapPoints.size(); iMP++)
+    else
     {
-        if(vpAllMapPoints[iMP])
+        Optimizer::GlobalBundleAdjustemnt(mpMap,20);
+    }
+    if(!mCurrentFrame.mbHaveOdom)
+    {
+        // Set median depth to 1
+        float medianDepth = pKFini->ComputeSceneMedianDepth(2);
+        float invMedianDepth = 1.0f/medianDepth;
+
+        if(medianDepth<0 || pKFcur->TrackedMapPoints(1)<100)
         {
-            MapPoint* pMP = vpAllMapPoints[iMP];
-            pMP->SetWorldPos(pMP->GetWorldPos()*invMedianDepth);
+            cout << "Wrong initialization, reseting..." << endl;
+            Reset();
+            return;
+        }
+
+        // Scale initial baseline
+        cv::Mat Tc2w = pKFcur->GetPose();
+        Tc2w.col(3).rowRange(0,3) = Tc2w.col(3).rowRange(0,3)*invMedianDepth;
+        pKFcur->SetPose(Tc2w);
+
+        // Scale points
+        vector<MapPoint*> vpAllMapPoints = pKFini->GetMapPointMatches();
+        for(size_t iMP=0; iMP<vpAllMapPoints.size(); iMP++)
+        {
+            if(vpAllMapPoints[iMP])
+            {
+                MapPoint* pMP = vpAllMapPoints[iMP];
+                pMP->SetWorldPos(pMP->GetWorldPos()*invMedianDepth);
+            }
         }
     }
 
@@ -770,7 +827,17 @@ bool Tracking::TrackReferenceKeyFrame()
         return false;
 
     mCurrentFrame.mvpMapPoints = vpMapPointMatches;
-    mCurrentFrame.SetPose(mLastFrame.mTcw);
+
+    /********************* Modified Here *********************/
+    if(mCurrentFrame.mbHaveOdom&&bLooseCouple)
+    {
+        cv::Mat Tcl=Frame::GetTransformFromOdometer(mLastFrame.mOdomPose,mCurrentFrame.mOdomPose).inv();
+        mCurrentFrame.SetPose(Tcl*mLastFrame.mTcw);
+    }
+    else
+    {
+        mCurrentFrame.SetPose(mLastFrame.mTcw);
+    }
 
     Optimizer::PoseOptimization(&mCurrentFrame);
 
@@ -872,7 +939,16 @@ bool Tracking::TrackWithMotionModel()
     // Create "visual odometry" points if in Localization Mode
     UpdateLastFrame();
 
-    mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
+    /********************* Modified Here *********************/
+    if(mLastFrame.mbHaveOdom&&bLooseCouple)
+    {
+        cv::Mat Tcl=Frame::GetTransformFromOdometer(mLastFrame.mOdomPose,mCurrentFrame.mOdomPose).inv();
+        mCurrentFrame.SetPose(Tcl*mLastFrame.mTcw);
+    }
+    else
+    {
+        mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
+    }
 
     fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
 
@@ -940,13 +1016,17 @@ bool Tracking::TrackLocalMap()
     Optimizer::PoseOptimization(&mCurrentFrame);
     mnMatchesInliers = 0;
 
+    //int pointsCount=0,inliersCount=0;
+
     // Update MapPoints Statistics
     for(int i=0; i<mCurrentFrame.N; i++)
     {
         if(mCurrentFrame.mvpMapPoints[i])
         {
+            //pointsCount++;
             if(!mCurrentFrame.mvbOutlier[i])
             {
+                //inliersCount++;
                 mCurrentFrame.mvpMapPoints[i]->IncreaseFound();
                 if(!mbOnlyTracking)
                 {
@@ -961,6 +1041,7 @@ bool Tracking::TrackLocalMap()
 
         }
     }
+    //cout<<"points: "<<pointsCount<<" , inliers: "<<inliersCount<<" , MatchesInliers: "<<mnMatchesInliers<<endl;
 
     // Decide if the tracking was succesful
     // More restrictive if there was a relocalization recently
@@ -1021,7 +1102,6 @@ bool Tracking::NeedNewKeyFrame()
     float thRefRatio = 0.75f;
     if(nKFs<2)
         thRefRatio = 0.4f;
-
     if(mSensor==System::MONOCULAR)
         thRefRatio = 0.9f;
 
@@ -1033,7 +1113,12 @@ bool Tracking::NeedNewKeyFrame()
     const bool c1c =  mSensor!=System::MONOCULAR && (mnMatchesInliers<nRefMatches*0.25 || bNeedToInsertClose) ;
     // Condition 2: Few tracked points compared to reference keyframe. Lots of visual odometry compared to map matches.
     const bool c2 = ((mnMatchesInliers<nRefMatches*thRefRatio|| bNeedToInsertClose) && mnMatchesInliers>15);
-
+    // cout<<"nRefMatches = "<<nRefMatches<<endl;
+    // cout<<"thRefRatio = "<<thRefRatio<<endl;
+    // cout<<"nRefMatches*thRefRatio = "<<nRefMatches*thRefRatio<<endl;
+    // cout<<"mnMatchesInliers = "<<mnMatchesInliers<<endl;
+    // cout<<"c1a = "<<c1a<<" , c1b = "<<c1b<<" , c1c = "<<c1c<<" , c2 = "<<c2<<endl;
+    // cout<<"(c1a||c1b||c1c)&&c2 = "<<((c1a||c1b||c1c)&&c2)<<endl;
     if((c1a||c1b||c1c)&&c2)
     {
         // If the mapping accepts keyframes, insert keyframe.
@@ -1587,6 +1672,33 @@ void Tracking::InformOnlyTracking(const bool &flag)
     mbOnlyTracking = flag;
 }
 
+void Tracking::DrawCurPose(const cv::Mat &Tcw, double r, double g, double b, string name)
+{
+    cv::Mat Cur_Twb_c = Converter::Tcw2Twb_c(Tcw);
+    string waypoint_name = name + to_string(mCurrentFrame.mnId);
+    
+    DrawInTwc_ptr_(Cur_Twb_c,r,g,b,waypoint_name);
+}
 
+void Tracking::DrawGT(double r, double g, double b, string name)
+{
+    cv::Mat GT_Twb = mCurrentFrame.GetGTPoseTwb();
+    cv::Mat GT_Twb_c = Converter::Twb2Twb_c(GT_Twb);
+    string waypoint_name = name + to_string(mCurrentFrame.mnId);
+    DrawInTwc_ptr_(GT_Twb_c,r,g,b,waypoint_name);
+    Twc_ptr_->spinOnce();
+}
+
+
+void Tracking::DrawInTwc_ptr_(const cv::Mat &T, double r, double g, double b, string name)
+{
+    Eigen::Affine3f Draw_pose;
+    Draw_pose.matrix() = Converter::toMatrix4f(T);
+    birdseye_odometry::SemanticPoint Tpoint;
+    Tpoint.x = Draw_pose.translation()[0];
+    Tpoint.y = Draw_pose.translation()[1];
+    Tpoint.z = Draw_pose.translation()[2];
+    Twc_ptr_->addSphere(Tpoint, 0.1, r, g, b, name);
+}
 
 } //namespace ORB_SLAM

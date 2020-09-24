@@ -53,7 +53,7 @@ public:
     enum eSensor{
         MONOCULAR=0,
         STEREO=1,
-        RGBD=2
+        RGBD=2,
     };
 
 public:
@@ -76,6 +76,13 @@ public:
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
     // Returns the camera pose (empty if tracking fails).
     cv::Mat TrackMonocular(const cv::Mat &im, const double &timestamp);
+
+    /********************* Modified Here *********************/
+    // Proccess the given monocular frame with odometry information
+    // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
+    // Input odomPose: 2D odometry pose consisting of (x, y, theta).
+    // Returns the camera pose (empty if tracking fails).
+    cv::Mat TrackMonocularWithOdom(const cv::Mat &im, cv::Vec3d odomPose, const double &timestamp);
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     void ActivateLocalizationMode();
@@ -111,6 +118,13 @@ public:
     // Call first Shutdown()
     // See format details at: http://www.cvlibs.net/datasets/kitti/eval_odometry.php
     void SaveTrajectoryKITTI(const string &filename);
+
+    /********************* Modified Here *********************/
+    // Save camera trajectory in the KITTI dataset format.
+    // Only for stereo and RGB-D. This method does not work for monocular.
+    // Call first Shutdown()
+    // See format details at: http://www.cvlibs.net/datasets/kitti/eval_odometry.php
+    void SaveKeyFrameTrajectoryOdomTUM(const string &filename);
 
     // TODO: Save/Load functions
     // SaveMap(const string &filename);

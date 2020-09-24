@@ -31,6 +31,8 @@ bool Frame::mbInitialComputations=true;
 float Frame::cx, Frame::cy, Frame::fx, Frame::fy, Frame::invfx, Frame::invfy;
 float Frame::mnMinX, Frame::mnMinY, Frame::mnMaxX, Frame::mnMaxY;
 float Frame::mfGridElementWidthInv, Frame::mfGridElementHeightInv;
+/********************* Modified Here *********************/
+cv::Mat Frame::Tbc,Frame::Tcb;
 
 Frame::Frame()
 {}
@@ -47,7 +49,8 @@ Frame::Frame(const Frame &frame)
      mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels),
      mfScaleFactor(frame.mfScaleFactor), mfLogScaleFactor(frame.mfLogScaleFactor),
      mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors),
-     mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2)
+     mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2),
+     mOdomPose(frame.mOdomPose),mbHaveOdom(frame.mbHaveOdom),mTcwOdom(frame.mTcwOdom)
 {
     for(int i=0;i<FRAME_GRID_COLS;i++)
         for(int j=0; j<FRAME_GRID_ROWS; j++)
@@ -60,10 +63,32 @@ Frame::Frame(const Frame &frame)
 
 Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
     :mpORBvocabulary(voc),mpORBextractorLeft(extractorLeft),mpORBextractorRight(extractorRight), mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
-     mpReferenceKF(static_cast<KeyFrame*>(NULL))
+     mpReferenceKF(static_cast<KeyFrame*>(NULL)),mbHaveOdom(false)
 {
     // Frame ID
     mnId=nNextId++;
+
+    // This is done only for the first Frame (or after a change in the calibration)
+    if(mbInitialComputations)
+    {
+        ComputeImageBounds(imLeft);
+
+        mfGridElementWidthInv=static_cast<float>(FRAME_GRID_COLS)/(mnMaxX-mnMinX);
+        mfGridElementHeightInv=static_cast<float>(FRAME_GRID_ROWS)/(mnMaxY-mnMinY);
+
+        fx = K.at<float>(0,0);
+        fy = K.at<float>(1,1);
+        cx = K.at<float>(0,2);
+        cy = K.at<float>(1,2);
+        invfx = 1.0f/fx;
+        invfy = 1.0f/fy;
+        /********************* Modified Here *********************/
+        CalculateExtrinsics();
+
+        mbInitialComputations=false;
+    }
+
+    mb = mbf/fx;
 
     // Scale Level Info
     mnScaleLevels = mpORBextractorLeft->GetLevels();
@@ -92,14 +117,23 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));    
     mvbOutlier = vector<bool>(N,false);
 
+    AssignFeaturesToGrid();
+}
+
+Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+    :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
+     mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),mbHaveOdom(false)
+{
+    // Frame ID
+    mnId=nNextId++;
 
     // This is done only for the first Frame (or after a change in the calibration)
     if(mbInitialComputations)
     {
-        ComputeImageBounds(imLeft);
+        ComputeImageBounds(imGray);
 
-        mfGridElementWidthInv=static_cast<float>(FRAME_GRID_COLS)/(mnMaxX-mnMinX);
-        mfGridElementHeightInv=static_cast<float>(FRAME_GRID_ROWS)/(mnMaxY-mnMinY);
+        mfGridElementWidthInv=static_cast<float>(FRAME_GRID_COLS)/static_cast<float>(mnMaxX-mnMinX);
+        mfGridElementHeightInv=static_cast<float>(FRAME_GRID_ROWS)/static_cast<float>(mnMaxY-mnMinY);
 
         fx = K.at<float>(0,0);
         fy = K.at<float>(1,1);
@@ -108,20 +142,13 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
         invfx = 1.0f/fx;
         invfy = 1.0f/fy;
 
+        /********************* Modified Here *********************/
+        CalculateExtrinsics();
+
         mbInitialComputations=false;
     }
 
     mb = mbf/fx;
-
-    AssignFeaturesToGrid();
-}
-
-Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
-    :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
-     mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth)
-{
-    // Frame ID
-    mnId=nNextId++;
 
     // Scale Level Info
     mnScaleLevels = mpORBextractorLeft->GetLevels();
@@ -147,6 +174,17 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));
     mvbOutlier = vector<bool>(N,false);
 
+    AssignFeaturesToGrid();
+}
+
+
+Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+    :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
+     mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth), mbHaveOdom(false)
+{
+    // Frame ID
+    mnId=nNextId++;
+
     // This is done only for the first Frame (or after a change in the calibration)
     if(mbInitialComputations)
     {
@@ -162,21 +200,13 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
         invfx = 1.0f/fx;
         invfy = 1.0f/fy;
 
+        /********************* Modified Here *********************/
+        CalculateExtrinsics();
+
         mbInitialComputations=false;
     }
 
     mb = mbf/fx;
-
-    AssignFeaturesToGrid();
-}
-
-
-Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
-    :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
-     mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth)
-{
-    // Frame ID
-    mnId=nNextId++;
 
     // Scale Level Info
     mnScaleLevels = mpORBextractorLeft->GetLevels();
@@ -204,6 +234,17 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
     mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));
     mvbOutlier = vector<bool>(N,false);
 
+    AssignFeaturesToGrid();
+}
+
+/********************* Modified Here *********************/
+Frame::Frame(const cv::Mat &imGray, const double &timeStamp, cv::Vec3d odomPose, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+    :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
+     mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),mOdomPose(odomPose),mbHaveOdom(true)
+{
+    // Frame ID
+    mnId=nNextId++;
+
     // This is done only for the first Frame (or after a change in the calibration)
     if(mbInitialComputations)
     {
@@ -219,10 +260,38 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
         invfx = 1.0f/fx;
         invfy = 1.0f/fy;
 
+        CalculateExtrinsics();
+
         mbInitialComputations=false;
     }
 
     mb = mbf/fx;
+
+    // Scale Level Info
+    mnScaleLevels = mpORBextractorLeft->GetLevels();
+    mfScaleFactor = mpORBextractorLeft->GetScaleFactor();
+    mfLogScaleFactor = log(mfScaleFactor);
+    mvScaleFactors = mpORBextractorLeft->GetScaleFactors();
+    mvInvScaleFactors = mpORBextractorLeft->GetInverseScaleFactors();
+    mvLevelSigma2 = mpORBextractorLeft->GetScaleSigmaSquares();
+    mvInvLevelSigma2 = mpORBextractorLeft->GetInverseScaleSigmaSquares();
+
+    // ORB extraction
+    ExtractORB(0,imGray);
+
+    N = mvKeys.size();
+
+    if(mvKeys.empty())
+        return;
+
+    UndistortKeyPoints();
+
+    // Set no stereo information
+    mvuRight = vector<float>(N,-1);
+    mvDepth = vector<float>(N,-1);
+
+    mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));
+    mvbOutlier = vector<bool>(N,false);
 
     AssignFeaturesToGrid();
 }
@@ -389,7 +458,7 @@ bool Frame::PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY)
         return false;
 
     return true;
-}
+}  
 
 
 void Frame::ComputeBoW()
@@ -400,6 +469,7 @@ void Frame::ComputeBoW()
         mpORBvocabulary->transform(vCurrentDesc,mBowVec,mFeatVec,4);
     }
 }
+
 
 void Frame::UndistortKeyPoints()
 {
@@ -419,7 +489,8 @@ void Frame::UndistortKeyPoints()
 
     // Undistort points
     mat=mat.reshape(2);
-    cv::undistortPoints(mat,mat,mK,mDistCoef,cv::Mat(),mK);
+    //cv::undistortPoints(mat,mat,mK,mDistCoef,cv::Mat(),mK);
+    cv::fisheye::undistortPoints(mat,mat,mK,mDistCoef,cv::Mat(),mK);
     mat=mat.reshape(1);
 
     // Fill undistorted keypoint vector
@@ -445,14 +516,40 @@ void Frame::ComputeImageBounds(const cv::Mat &imLeft)
 
         // Undistort corners
         mat=mat.reshape(2);
-        cv::undistortPoints(mat,mat,mK,mDistCoef,cv::Mat(),mK);
+        //cv::undistortPoints(mat,mat,mK,mDistCoef,cv::Mat(),mK);
+        cv::fisheye::undistortPoints(mat,mat,mK,mDistCoef,cv::Mat(),mK);
         mat=mat.reshape(1);
 
-        mnMinX = min(mat.at<float>(0,0),mat.at<float>(2,0));
-        mnMaxX = max(mat.at<float>(1,0),mat.at<float>(3,0));
-        mnMinY = min(mat.at<float>(0,1),mat.at<float>(1,1));
-        mnMaxY = max(mat.at<float>(2,1),mat.at<float>(3,1));
+        // mnMinX = min(mat.at<float>(0,0),mat.at<float>(2,0));
+        // mnMaxX = max(mat.at<float>(1,0),mat.at<float>(3,0));
+        // mnMinY = min(mat.at<float>(0,1),mat.at<float>(1,1));
+        // mnMaxY = max(mat.at<float>(2,1),mat.at<float>(3,1));
 
+        mnMinX = std::numeric_limits<float>::max();
+        mnMaxX = std::numeric_limits<float>::min();
+        mnMinY = std::numeric_limits<float>::max();
+        mnMaxY = std::numeric_limits<float>::min();
+
+        for (int i = 0; i < 4; ++i)
+        {
+          if (mat.at<float>(i,0) < mnMinX)
+            mnMinX = mat.at<float>(i,0);
+
+          if (mat.at<float>(i,0) > mnMaxX)
+            mnMaxX = mat.at<float>(i,0);
+
+          if (mat.at<float>(i,1) < mnMinY)
+            mnMinY = mat.at<float>(i,1);
+
+          if (mat.at<float>(i,1) > mnMaxY)
+            mnMaxY = mat.at<float>(i,1);
+        }
+#ifdef DEBUG
+        std::cout << "mnMinX: " << mnMinX << std::endl;
+        std::cout << "mnMaxX: " << mnMaxX << std::endl;
+        std::cout << "mnMinY: " << mnMinY << std::endl;
+        std::cout << "mnMaxY: " << mnMaxY << std::endl;
+#endif
     }
     else
     {
@@ -570,7 +667,7 @@ void Frame::ComputeStereoMatches()
             vector<float> vDists;
             vDists.resize(2*L+1);
 
-            const float iniu = scaleduR0+L-w;
+            const float iniu = scaleduR0-L-w;
             const float endu = scaleduR0+L+w+1;
             if(iniu<0 || endu >= mpORBextractorRight->mvImagePyramid[kpL.octave].cols)
                 continue;
@@ -677,6 +774,115 @@ cv::Mat Frame::UnprojectStereo(const int &i)
     }
     else
         return cv::Mat();
+}
+
+/********************* Modified Here *********************/
+// void Frame::CalculateExtrinsics()
+// {
+//     cv::Mat tbc=(cv::Mat_<float>(3,1)<<-0.012, 2.746, -2.654);
+//     //static cv::Mat qbc=(cv::Mat_<float>(4,1)<<0.631, -0.623, 0.325, 0.330);
+//     float qx=0.631,qy=-0.623,qz=0.325,qw=0.330;
+//     cv::Mat Rcb=(cv::Mat_<float>(3,3)<<1-2*(qy*qy+qz*qz),  2*(qx*qy-qw*qz),    2*(qx*qz+qw*qy),
+//                                                 2*(qx*qy+qw*qz),  1-2*(qx*qx+qz*qz),  2*(qy*qz-qw*qx),
+//                                                 2*(qx*qz-qw*qy),  2*(qy*qz+qw*qx),    1-2*(qx*qx+qy*qy));
+//     // Rcb=Rcb.t();
+//     //Extrinsics : odometer and front camera
+//     Tbc=cv::Mat::eye(4,4,CV_32F);
+//     Tcb=cv::Mat::eye(4,4,CV_32F);
+//     Rcb.copyTo(Tcb.rowRange(0,3).colRange(0,3));
+//     tbc.copyTo(Tcb.rowRange(0,3).col(3));
+//     cv::Mat Rbc=Rcb.t();
+//     cv::Mat tcb=-Rbc*tbc;
+//     Rbc.copyTo(Tbc.rowRange(0,3).colRange(0,3));
+//     tcb.copyTo(Tbc.rowRange(0,3).col(3));
+//     cout<<"extrinsics: "<<endl;
+//     cout<<"Tbc = "<<endl<<Tbc<<endl;
+//     cout<<"Tcb = "<<endl<<Tcb<<endl;
+// }
+void Frame::CalculateExtrinsics()
+{
+    // from front camera to base footprint
+    cv::Mat tbc = (cv::Mat_<float>(3,1)<<3.747, 0.040, 0.736);
+    float qx=0.631,qy=-0.623,qz=0.325,qw=-0.330;
+    cv::Mat Rbc=(cv::Mat_<float>(3,3)<<1-2*(qy*qy+qz*qz),  2*(qx*qy-qw*qz),    2*(qx*qz+qw*qy),
+                                                2*(qx*qy+qw*qz),  1-2*(qx*qx+qz*qz),  2*(qy*qz-qw*qx),
+                                                2*(qx*qz-qw*qy),  2*(qy*qz+qw*qx),    1-2*(qx*qx+qy*qy));
+    Tbc = cv::Mat::eye(4,4,CV_32F);
+    Rbc.copyTo(Tbc.rowRange(0,3).colRange(0,3));
+    tbc.copyTo(Tbc.rowRange(0,3).col(3));
+
+    Tcb = cv::Mat::eye(4,4,CV_32F);
+    cv::Mat Rcb = Rbc.t();
+    cv::Mat tcb = -Rcb*tbc;
+    Rcb.copyTo(Tcb.rowRange(0,3).colRange(0,3));
+    tcb.copyTo(Tcb.rowRange(0,3).col(3));
+
+    cout<<"extrinsics: "<<endl;
+    cout<<"Tbc = "<<endl<<Tbc<<endl;
+    cout<<"Tcb = "<<endl<<Tcb<<endl;
+}
+
+// cv::Mat Frame::GetTransformFromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2)
+// {
+//     //odometer pose
+//     double x1=odomPose1[0],y1=odomPose1[1],theta1=odomPose1[2];
+//     double x2=odomPose2[0],y2=odomPose2[1],theta2=odomPose2[2];
+
+//     cv::Mat Twb1=cv::Mat::eye(4,4,CV_32F);
+//     cv::Mat Tb2w=cv::Mat::eye(4,4,CV_32F);
+
+//     cv::Mat Rb1w=(cv::Mat_<float>(3,3)<<cos(theta1),sin(theta1),0,
+//                                        -sin(theta1),cos(theta1),0,
+//                                                0,        0,     1);
+//     cv::Mat tb1w=(cv::Mat_<float>(3,1)<<x1,y1,0);
+//     cv::Mat Rb2w=(cv::Mat_<float>(3,3)<<cos(theta2),sin(theta2),0,
+//                                        -sin(theta2),cos(theta2),0,
+//                                                0,        0,     1);
+//     cv::Mat tb2w=(cv::Mat_<float>(3,1)<<x2,y2,0);
+
+//     cv::Mat Rwb1=Rb1w.t();
+//     Rwb1.copyTo(Twb1.rowRange(0,3).colRange(0,3));
+//     tb1w.copyTo(Twb1.rowRange(0,3).col(3));
+
+//     cv::Mat twb2=-Rb2w*tb2w;
+//     Rb2w.copyTo(Tb2w.rowRange(0,3).colRange(0,3));
+//     twb2.copyTo(Tb2w.rowRange(0,3).col(3));
+
+//     cv::Mat T21=Tcb*Tb2w*Twb1*Tbc;
+
+//     return T21;
+// }
+
+cv::Mat Frame::GetTransformFromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2)
+{
+    //odometer pose
+    double x1=odomPose1[0],y1=odomPose1[1],theta1=odomPose1[2];
+    double x2=odomPose2[0],y2=odomPose2[1],theta2=odomPose2[2];
+
+    //pre-integration terms
+    double theta12=theta2-theta1;
+    double x12=(x2-x1)*cos(theta1)+(y2-y1)*sin(theta1);
+    double y12=(y2-y1)*cos(theta1)-(x2-x1)*sin(theta1);
+
+    //T12
+    cv::Mat T12b=(cv::Mat_<float>(4,4)<<cos(theta12),-sin(theta12),0,x12,
+                                        sin(theta12), cos(theta12),0,y12,
+                                             0,            0,      1, 0,
+                                             0,            0,      0, 1);
+    cv::Mat T12c=Tcb*T12b*Tbc;
+    return T12c;
+}
+
+cv::Mat Frame::GetGTPoseTwb()
+{
+    double x = mOdomPose[0], y = mOdomPose[1], theta = mOdomPose[2];
+
+    cv::Mat Twb=(cv::Mat_<float>(4,4)<< cos(theta),-sin(theta),0,x,
+                                        sin(theta), cos(theta),0,y,
+                                        0,            0,      1, 0,
+                                        0,            0,      0, 1);
+
+    return Twb.clone();
 }
 
 } //namespace ORB_SLAM

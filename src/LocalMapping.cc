@@ -22,8 +22,11 @@
 #include "LoopClosing.h"
 #include "ORBmatcher.h"
 #include "Optimizer.h"
+#include <unistd.h>
 
 #include<mutex>
+
+extern bool bTightCouple;
 
 namespace ORB_SLAM2
 {
@@ -77,9 +80,18 @@ void LocalMapping::Run()
             if(!CheckNewKeyFrames() && !stopRequested())
             {
                 // Local BA
+                /********************* Modified Here *********************/
                 if(mpMap->KeyFramesInMap()>2)
-                    Optimizer::LocalBundleAdjustment(mpCurrentKeyFrame,&mbAbortBA, mpMap);
-
+                {
+                    if(mpCurrentKeyFrame->mbHaveOdom&&bTightCouple)
+                    {
+                        Optimizer::LocalBundleAdjustmentWithOdom(mpCurrentKeyFrame,&mbAbortBA, mpMap);
+                    }
+                    else
+                    {
+                        Optimizer::LocalBundleAdjustment(mpCurrentKeyFrame,&mbAbortBA, mpMap);
+                    }
+                }
                 // Check redundant local Keyframes
                 KeyFrameCulling();
             }

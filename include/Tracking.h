@@ -18,12 +18,20 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
-
 #ifndef TRACKING_H
 #define TRACKING_H
 
 #include<opencv2/core/core.hpp>
 #include<opencv2/features2d/features2d.hpp>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/io/ply_io.h>
+#include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/point_types.h>
+#include <pcl/point_types_conversion.h>
+#include <pcl/visualization/pcl_visualizer.h>
+#include <pclomp/ndt_omp.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/registration/icp.h>
 
 #include"Viewer.h"
 #include"FrameDrawer.h"
@@ -61,6 +69,8 @@ public:
     cv::Mat GrabImageStereo(const cv::Mat &imRectLeft,const cv::Mat &imRectRight, const double &timestamp);
     cv::Mat GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp);
     cv::Mat GrabImageMonocular(const cv::Mat &im, const double &timestamp);
+    /********************* Modified Here *********************/
+    cv::Mat GrabImageMonocularWithOdom(const cv::Mat &im, const double &timestamp, cv::Vec3d odomPose);
 
     void SetLocalMapper(LocalMapping* pLocalMapper);
     void SetLoopClosing(LoopClosing* pLoopClosing);
@@ -73,6 +83,10 @@ public:
 
     // Use this function if you have deactivated local mapping and you only want to localize the camera.
     void InformOnlyTracking(const bool &flag);
+    void DrawInTwc_ptr_(const cv::Mat &T, double r, double g, double b, string name);
+
+    void DrawCurPose(const cv::Mat &Tcw, double r, double g, double b, string name);
+    void DrawGT(double r, double g, double b, string name);
 
 
 public:
@@ -112,6 +126,8 @@ public:
 
     // True if local mapping is deactivated and we are performing only localization
     bool mbOnlyTracking;
+
+    pcl::visualization::PCLVisualizer::Ptr Twc_ptr_;
 
     void Reset();
 

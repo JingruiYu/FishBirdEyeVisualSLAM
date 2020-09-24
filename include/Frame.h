@@ -57,6 +57,10 @@ public:
     // Constructor for Monocular cameras.
     Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
+    /********************* Modified Here *********************/
+    // Constructor for Monocular cameras with Odometry. Notice: Other constructors are also added initialization terms for mbHaveOdom flag.
+    Frame(const cv::Mat &imGray, const double &timeStamp, const cv::Vec3d odomPose, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
+
     // Extract ORB on the image. 0 for left image and 1 for right image.
     void ExtractORB(int flag, const cv::Mat &im);
 
@@ -98,6 +102,13 @@ public:
     // Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
     cv::Mat UnprojectStereo(const int &i);
 
+    /********************* Modified Here *********************/
+    //get relative transformation between 2 frames according to odometer
+    static cv::Mat GetTransformFromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2);
+    void CalculateExtrinsics();
+
+    cv::Mat GetGTPoseTwb();
+
 public:
     // Vocabulary used for relocalization.
     ORBVocabulary* mpORBvocabulary;
@@ -117,6 +128,9 @@ public:
     static float invfx;
     static float invfy;
     cv::Mat mDistCoef;
+    /********************* Modified Here *********************/
+    //front camera - odometer extrinsics
+    static cv::Mat Tbc,Tcb;
 
     // Stereo baseline multiplied by fx.
     float mbf;
@@ -141,6 +155,12 @@ public:
     // "Monocular" keypoints have a negative value.
     std::vector<float> mvuRight;
     std::vector<float> mvDepth;
+
+    /********************* Modified Here *********************/
+    //odometry pose at current frame.
+    cv::Vec3d mOdomPose;
+    bool mbHaveOdom;
+    cv::Mat mTcwOdom;
 
     // Bag of Words Vector structures.
     DBoW2::BowVector mBowVec;
