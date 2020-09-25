@@ -45,7 +45,7 @@ Initializer::Initializer(const Frame &ReferenceFrame, float sigma, int iteration
     if(ReferenceFrame.mbHaveOdom)
     {
         mbHaveOdom=true;
-        mOdomPose1=ReferenceFrame.mOdomPose;
+        mOdomPose1=ReferenceFrame.mGtPose;
     }
     else
     {
@@ -63,7 +63,7 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     /********************* Modified Here *********************/
     if(mbHaveOdom)
     {
-        mOdomPose2=CurrentFrame.mOdomPose;
+        mOdomPose2=CurrentFrame.mGtPose;
     }
 
     mvMatches12.clear();
@@ -698,6 +698,7 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
 bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv::Mat &K,
                             cv::Mat &R21, cv::Mat &t21, vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated, float minParallax, int minTriangulated)
 {
+    cout << "\033[32m"  << " - ReInitconstructF - " << "\033[0m" << endl;
     int N=0;
     for(size_t i=0, iend = vbMatchesInliers.size() ; i<iend; i++)
         if(vbMatchesInliers[i])
@@ -710,30 +711,25 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
     // Recover the 4 motion hypotheses
     DecomposeE(E21,R1,R2,t);
 
-    cv::Mat Twb1 = mRefFrame.GetGTPoseTwb();
-    cv::Mat Twb2 = mCurFrame.GetGTPoseTwb();
-
-    cv::Mat T12b = Converter::invT(Twb1)*Twb2;
-
-    if(norm(T12b.rowRange(0,3).col(3))<0.2)
+    cv::Mat R3;
+    if(mbHaveOdom)
     {
-        cout << "Twb1 : " << endl << Twb1 << endl;
-        cout << "Twb2 : " << endl << Twb2 << endl;
-        cout << "T12b : " << endl << T12b << endl;
-        cout << " T12b<0.2 : "<< norm(T12b.rowRange(0,3).col(3)) <<endl;
+        cv::Mat T21=Frame::GetTransformFromOdometer(mRefFrame.mGtPose,mCurFrame.mGtPose).inv();
+        R3=T21.rowRange(0,3).colRange(0,3);
+        cv::Mat t_odom=T21.rowRange(0,3).col(3);
         
-        return false;
+        if (norm(t_odom) < 0.2)
+        {
+            cout << " t_odom<0.2 : "<< norm(t_odom) <<endl;
+            return false;
+        }
+        
+        double scale=t_odom.dot(t);
+        t=t*scale;
+        cout<<"scale = "<<scale<<" , cos(theta) = "<<scale/cv::norm(t_odom)<<endl;
+        cout<<"R1/R3 = "<<0.5*(cv::trace(R1.t()*R3)[0]-1)<<endl;
+        cout<<"R2/R3 = "<<0.5*(cv::trace(R2.t()*R3)[0]-1)<<endl;
     }
-
-    cv::Mat T12c = Frame::Tcb*T12b*Frame::Tbc;
-    cv::Mat R12 = T12c.rowRange(0,3).colRange(0,3);
-    cv::Mat t12 = T12c.rowRange(0,3).col(3);
-
-    cv::Mat R3 = R12.t();
-    cv::Mat t_icp = -R3*t12;
-
-    t = t/norm(t);
-    t = t.dot(t_icp)*t;
 
     cv::Mat t1=t;
     cv::Mat t2=-t;

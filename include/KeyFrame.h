@@ -191,9 +191,8 @@ public:
 
     /********************* Modified Here *********************/
     //odometer pose at current frame.
-    cv::Vec3d mOdomPose;
+    cv::Vec3d mGtPose;
     bool mbHaveOdom;
-    cv::Mat mTcwOdom;
 
 
     // The following variables need to be accessed trough a mutex to be thread safe.

@@ -59,7 +59,8 @@ public:
 
     /********************* Modified Here *********************/
     // Constructor for Monocular cameras with Odometry. Notice: Other constructors are also added initialization terms for mbHaveOdom flag.
-    Frame(const cv::Mat &imGray, const double &timeStamp, const cv::Vec3d odomPose, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
+    Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &birdviewmask, const cv::Mat &birdviewContour,
+        const cv::Mat &birdviewContourICP, const double &timeStamp, cv::Vec3d odomPose, cv::Vec3d gtPose, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
     void ExtractORB(int flag, const cv::Mat &im);
@@ -158,9 +159,14 @@ public:
 
     /********************* Modified Here *********************/
     //odometry pose at current frame.
-    cv::Vec3d mOdomPose;
+    cv::Mat mImg;
+    cv::Mat mBirdviewImg;
+    cv::Mat mBirdviewMask;
+    cv::Mat mBirdviewContour;
+    cv::Mat mBirdviewContourICP;
+    cv::Vec3b mOdomPose;
+    cv::Vec3d mGtPose; //mGtPose
     bool mbHaveOdom;
-    cv::Mat mTcwOdom;
 
     // Bag of Words Vector structures.
     DBoW2::BowVector mBowVec;

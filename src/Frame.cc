@@ -43,14 +43,17 @@ Frame::Frame(const Frame &frame)
      mTimeStamp(frame.mTimeStamp), mK(frame.mK.clone()), mDistCoef(frame.mDistCoef.clone()),
      mbf(frame.mbf), mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys),
      mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn),  mvuRight(frame.mvuRight),
-     mvDepth(frame.mvDepth), mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec),
+     mvDepth(frame.mvDepth), 
+     mImg(frame.mImg), mBirdviewImg(frame.mBirdviewImg), mBirdviewMask(frame.mBirdviewMask),
+     mBirdviewContour(frame.mBirdviewContour), mBirdviewContourICP(frame.mBirdviewContourICP),
+     mOdomPose(frame.mOdomPose), mGtPose(frame.mGtPose),mbHaveOdom(frame.mbHaveOdom),
+     mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec),
      mDescriptors(frame.mDescriptors.clone()), mDescriptorsRight(frame.mDescriptorsRight.clone()),
      mvpMapPoints(frame.mvpMapPoints), mvbOutlier(frame.mvbOutlier), mnId(frame.mnId),
      mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels),
      mfScaleFactor(frame.mfScaleFactor), mfLogScaleFactor(frame.mfLogScaleFactor),
      mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors),
-     mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2),
-     mOdomPose(frame.mOdomPose),mbHaveOdom(frame.mbHaveOdom),mTcwOdom(frame.mTcwOdom)
+     mvLevelSigma2(frame.mvLevelSigma2), mvInvLevelSigma2(frame.mvInvLevelSigma2)
 {
     for(int i=0;i<FRAME_GRID_COLS;i++)
         for(int j=0; j<FRAME_GRID_ROWS; j++)
@@ -238,9 +241,11 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
 }
 
 /********************* Modified Here *********************/
-Frame::Frame(const cv::Mat &imGray, const double &timeStamp, cv::Vec3d odomPose, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+Frame::Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &birdviewmask, const cv::Mat &birdviewContour,
+        const cv::Mat &birdviewContourICP, const double &timeStamp, cv::Vec3d odomPose, cv::Vec3d gtPose,
+        ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
     :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
-     mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),mOdomPose(odomPose),mbHaveOdom(true)
+     mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth), mOdomPose(odomPose), mGtPose(gtPose), mbHaveOdom(true)
 {
     // Frame ID
     mnId=nNextId++;
@@ -294,6 +299,12 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, cv::Vec3d odomPose,
     mvbOutlier = vector<bool>(N,false);
 
     AssignFeaturesToGrid();
+
+    mImg = imGray.clone();
+    mBirdviewImg = BirdGray.clone();
+    mBirdviewMask = birdviewmask.clone();
+    mBirdviewContour = birdviewContour.clone();
+    mBirdviewContourICP = birdviewContourICP.clone();
 }
 
 void Frame::AssignFeaturesToGrid()
@@ -822,37 +833,6 @@ void Frame::CalculateExtrinsics()
     cout<<"Tcb = "<<endl<<Tcb<<endl;
 }
 
-// cv::Mat Frame::GetTransformFromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2)
-// {
-//     //odometer pose
-//     double x1=odomPose1[0],y1=odomPose1[1],theta1=odomPose1[2];
-//     double x2=odomPose2[0],y2=odomPose2[1],theta2=odomPose2[2];
-
-//     cv::Mat Twb1=cv::Mat::eye(4,4,CV_32F);
-//     cv::Mat Tb2w=cv::Mat::eye(4,4,CV_32F);
-
-//     cv::Mat Rb1w=(cv::Mat_<float>(3,3)<<cos(theta1),sin(theta1),0,
-//                                        -sin(theta1),cos(theta1),0,
-//                                                0,        0,     1);
-//     cv::Mat tb1w=(cv::Mat_<float>(3,1)<<x1,y1,0);
-//     cv::Mat Rb2w=(cv::Mat_<float>(3,3)<<cos(theta2),sin(theta2),0,
-//                                        -sin(theta2),cos(theta2),0,
-//                                                0,        0,     1);
-//     cv::Mat tb2w=(cv::Mat_<float>(3,1)<<x2,y2,0);
-
-//     cv::Mat Rwb1=Rb1w.t();
-//     Rwb1.copyTo(Twb1.rowRange(0,3).colRange(0,3));
-//     tb1w.copyTo(Twb1.rowRange(0,3).col(3));
-
-//     cv::Mat twb2=-Rb2w*tb2w;
-//     Rb2w.copyTo(Tb2w.rowRange(0,3).colRange(0,3));
-//     twb2.copyTo(Tb2w.rowRange(0,3).col(3));
-
-//     cv::Mat T21=Tcb*Tb2w*Twb1*Tbc;
-
-//     return T21;
-// }
-
 cv::Mat Frame::GetTransformFromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2)
 {
     //odometer pose
@@ -875,7 +855,7 @@ cv::Mat Frame::GetTransformFromOdometer(const cv::Vec3d &odomPose1, const cv::Ve
 
 cv::Mat Frame::GetGTPoseTwb()
 {
-    double x = mOdomPose[0], y = mOdomPose[1], theta = mOdomPose[2];
+    double x = mGtPose[0], y = mGtPose[1], theta = mGtPose[2];
 
     cv::Mat Twb=(cv::Mat_<float>(4,4)<< cos(theta),-sin(theta),0,x,
                                         sin(theta), cos(theta),0,y,

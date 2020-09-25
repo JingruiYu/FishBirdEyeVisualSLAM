@@ -48,7 +48,7 @@ namespace ORB_SLAM2
 {
 
 Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor):
-    mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(false), 
+    mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(false), IsReInit(false),
     Twc_ptr_(new pcl::visualization::PCLVisualizer("Twc_viewer")),
     mbVO(false), mpORBVocabulary(pVoc),
     mpKeyFrameDB(pKFDB), mpInitializer(static_cast<Initializer*>(NULL)), mpSystem(pSys), mpViewer(NULL),
@@ -278,7 +278,8 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
 }
 
 /********************* Modified Here *********************/
-cv::Mat Tracking::GrabImageMonocularWithOdom(const cv::Mat &im, const double &timestamp, cv::Vec3d odomPose)
+cv::Mat Tracking::GrabImageMonocularWithOdom(const cv::Mat &im, const cv::Mat &birdview, const cv::Mat &birdviewmask, const cv::Mat &birdviewContour,
+                                             const cv::Mat &birdviewContourICP, const double &timestamp, cv::Vec3d odomPose, cv::Vec3d gtPose)
 {
     mImGray = im;
 
@@ -297,10 +298,28 @@ cv::Mat Tracking::GrabImageMonocularWithOdom(const cv::Mat &im, const double &ti
             cvtColor(mImGray,mImGray,CV_BGRA2GRAY);
     }
 
+    cv::Mat BirdGray = birdview.clone();
+
+    //Convert bird view to grayscale
+    if(BirdGray.channels()==3)
+    {
+        if(mbRGB)
+            cvtColor(BirdGray,BirdGray,CV_RGB2GRAY);
+        else
+            cvtColor(BirdGray,BirdGray,CV_BGR2GRAY);
+    }
+    else if(BirdGray.channels()==4)
+    {
+        if(mbRGB)
+            cvtColor(BirdGray,BirdGray,CV_RGBA2GRAY);
+        else
+            cvtColor(BirdGray,BirdGray,CV_BGRA2GRAY);
+    }
+
     if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
-        mCurrentFrame = Frame(mImGray,timestamp,odomPose,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+        mCurrentFrame = Frame(mImGray,BirdGray,birdviewmask,birdviewContour,birdviewContourICP,timestamp,odomPose,gtPose,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
     else
-        mCurrentFrame = Frame(mImGray,timestamp,odomPose,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+        mCurrentFrame = Frame(mImGray,BirdGray,birdviewmask,birdviewContour,birdviewContourICP,timestamp,odomPose,gtPose,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
     Track();
 
@@ -360,7 +379,8 @@ void Tracking::Track()
             }
             else
             {
-                bOK = Relocalization();
+                // bOK = Relocalization();
+                bOK = ReInitialization();
             }
         }
         else
@@ -458,7 +478,10 @@ void Tracking::Track()
         if(bOK)
             mState = OK;
         else
+        {
             mState=LOST;
+            IsReInit=false;
+        }
 
         // Update drawer
         mpFrameDrawer->Update(this);
@@ -793,6 +816,112 @@ void Tracking::CreateInitialMapMonocular()
     mState=OK;
 }
 
+
+bool Tracking::CreateReInitialMapPoints()
+{
+    // Create KeyFrames
+    KeyFrame* pKFReI = new KeyFrame(mReInitFrame,mpMap,mpKeyFrameDB);
+    KeyFrame* pKFcur = new KeyFrame(mCurrentFrame,mpMap,mpKeyFrameDB);
+
+    cout << "pKFini->mnFrameId : " << pKFReI->mnFrameId << endl;
+    cout << "pKFcur->mnFrameId : " << pKFcur->mnFrameId << endl;
+
+    pKFReI->ComputeBoW();
+    pKFcur->ComputeBoW();
+
+    // Insert KFs in the map
+    mpMap->AddKeyFrame(pKFReI);
+    mpMap->AddKeyFrame(pKFcur);
+
+    // Create MapPoints and asscoiate to keyframes
+    for(size_t i=0; i<mvIniMatches.size();i++)
+    {
+        if(mvIniMatches[i]<0)
+            continue;
+
+        //Create MapPoint.
+        cv::Mat worldPos(mvIniP3D[i]);
+
+        MapPoint* pMP = new MapPoint(worldPos,pKFcur,mpMap);
+
+        pKFReI->AddMapPoint(pMP,i);
+        pKFcur->AddMapPoint(pMP,mvIniMatches[i]);
+
+        pMP->AddObservation(pKFReI,i);
+        pMP->AddObservation(pKFcur,mvIniMatches[i]);
+
+        pMP->ComputeDistinctiveDescriptors();
+        pMP->UpdateNormalAndDepth();
+
+        //Fill Current Frame structure
+        mCurrentFrame.mvpMapPoints[mvIniMatches[i]] = pMP;
+        mCurrentFrame.mvbOutlier[mvIniMatches[i]] = false;
+
+        //Add to Map
+        mpMap->AddMapPoint(pMP);
+    }
+    cout << "pKFini->InlierNum : " << pKFReI->GetMapPointsInlierNum() << endl;
+    cout << "pKFcur->InlierNum : " << pKFcur->GetMapPointsInlierNum() << endl;
+
+    // Update Connections
+    pKFReI->UpdateConnections();
+    pKFcur->UpdateConnections();
+
+    // Bundle Adjustment
+    cout << "New Map created with " << mpMap->MapPointsInMap() << " points" << endl;
+
+    // if(mbHaveBirdview)
+    // {
+    //     Optimizer::GlobalBundleAdjustemntWithBirdview(mpMap,20);
+    //     // Optimizer::GlobalBundleAdjustemnt(mpMap,20);
+    // }
+    // else
+    // {
+        // Optimizer::GlobalBundleAdjustemnt(mpMap,20);
+    // }
+    
+    cout << "After GlobalBundleAdjustemnt" << endl;
+    cout << "pKFini->InlierNum : " << pKFReI->GetMapPointsInlierNum() << endl;
+    cout << "pKFcur->InlierNum : " << pKFcur->GetMapPointsInlierNum() << endl;
+
+    // Set median depth to 1
+    float medianDepth = pKFReI->ComputeSceneMedianDepth(2);
+    float invMedianDepth = 1.0f/medianDepth;
+
+    if(medianDepth<0 || pKFcur->TrackedMapPoints(1)<90)
+    {
+        cout << "Wrong initialization, reseting..." << endl;
+        cout<<"medianDepth = "<<medianDepth<<" , TrackedMapPoint = "<<pKFcur->TrackedMapPoints(1)<<endl;
+        
+        return false;
+    }
+
+    mpLocalMapper->InsertKeyFrame(pKFReI);
+    mpLocalMapper->InsertKeyFrame(pKFcur);
+
+    mCurrentFrame.SetPose(pKFcur->GetPose());
+    mnLastKeyFrameId=mCurrentFrame.mnId;
+    mpLastKeyFrame = pKFcur;
+
+    mvpLocalKeyFrames.push_back(pKFcur);
+    mvpLocalKeyFrames.push_back(pKFReI);
+    mvpLocalMapPoints=mpMap->GetAllMapPoints();
+
+    mpReferenceKF = pKFcur;
+    mCurrentFrame.mpReferenceKF = pKFcur;
+
+    mpMap->SetReferenceMapPoints(mvpLocalMapPoints);
+
+    mpMapDrawer->SetCurrentCameraPose(pKFcur->GetPose());
+
+    mpMap->mvpKeyFrameOrigins.push_back(pKFReI);
+
+    mState=OK;
+    IsReInit=true;
+    return true;
+}
+
+
 void Tracking::CheckReplacedInLastFrame()
 {
     for(int i =0; i<mLastFrame.N; i++)
@@ -831,7 +960,7 @@ bool Tracking::TrackReferenceKeyFrame()
     /********************* Modified Here *********************/
     if(mCurrentFrame.mbHaveOdom&&bLooseCouple)
     {
-        cv::Mat Tcl=Frame::GetTransformFromOdometer(mLastFrame.mOdomPose,mCurrentFrame.mOdomPose).inv();
+        cv::Mat Tcl=Frame::GetTransformFromOdometer(mLastFrame.mGtPose,mCurrentFrame.mGtPose).inv();
         mCurrentFrame.SetPose(Tcl*mLastFrame.mTcw);
     }
     else
@@ -942,7 +1071,7 @@ bool Tracking::TrackWithMotionModel()
     /********************* Modified Here *********************/
     if(mLastFrame.mbHaveOdom&&bLooseCouple)
     {
-        cv::Mat Tcl=Frame::GetTransformFromOdometer(mLastFrame.mOdomPose,mCurrentFrame.mOdomPose).inv();
+        cv::Mat Tcl=Frame::GetTransformFromOdometer(mLastFrame.mGtPose,mCurrentFrame.mGtPose).inv();
         mCurrentFrame.SetPose(Tcl*mLastFrame.mTcw);
     }
     else
@@ -1072,9 +1201,14 @@ bool Tracking::NeedNewKeyFrame()
 
     // Tracked MapPoints in the reference keyframe
     int nMinObs = 3;
-    if(nKFs<=2)
+    if(nKFs<=2 || IsReInit)
         nMinObs=2;
     int nRefMatches = mpReferenceKF->TrackedMapPoints(nMinObs);
+
+    if (IsReInit)
+    {
+        mpLocalMapper->SetAcceptKeyFrames(true);
+    }
 
     // Local Mapping accept keyframes?
     bool bLocalMappingIdle = mpLocalMapper->AcceptKeyFrames();
@@ -1102,8 +1236,8 @@ bool Tracking::NeedNewKeyFrame()
     float thRefRatio = 0.75f;
     if(nKFs<2)
         thRefRatio = 0.4f;
-    if(mSensor==System::MONOCULAR)
-        thRefRatio = 0.9f;
+    // if(mSensor==System::MONOCULAR)
+    //     thRefRatio = 0.9f;
 
     // Condition 1a: More than "MaxFrames" have passed from last keyframe insertion
     const bool c1a = mCurrentFrame.mnId>=mnLastKeyFrameId+mMaxFrames;
@@ -1125,6 +1259,7 @@ bool Tracking::NeedNewKeyFrame()
         // Otherwise send a signal to interrupt BA
         if(bLocalMappingIdle)
         {
+            IsReInit = false;
             return true;
         }
         else
@@ -1586,6 +1721,89 @@ bool Tracking::Relocalization()
 
 }
 
+
+bool Tracking::ReInitialization()
+{
+    if (mLastFrame.mTcw.empty())
+        cout << "mLastFrame.mTcw is empty, which may not exit? " << endl;
+    
+    mVelocity = GetPriorMotion();
+    if (mVelocity.empty())
+        cout << "mVelocity is empty, why? " << endl;
+    
+    // mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
+    cv::Mat Twb_now  = mCurrentFrame.GetGTPoseTwb();
+    cv::Mat Tc_wc = Converter::Twb2Tcw(Twb_now);
+    mCurrentFrame.SetPose(Tc_wc);
+
+    if (!mpReInitial)
+    {
+        if (mCurrentFrame.mvKeys.size()>100)
+        {
+            mReInitFrame = Frame(mCurrentFrame);
+            mLastFrame = Frame(mCurrentFrame);
+            mvbPrevMatched.resize(mCurrentFrame.mvKeysUn.size());
+            for (size_t i = 0; i < mCurrentFrame.mvKeysUn.size(); i++)
+                mvbPrevMatched[i] = mCurrentFrame.mvKeysUn[i].pt;
+            
+            if (mpReInitial)
+                delete mpReInitial;
+            
+            mpReInitial = new Initializer(mCurrentFrame,1.0,200);
+
+            fill(mvIniMatches.begin(),mvIniMatches.end(),-1);           
+        }
+    }
+    else
+    {
+        if (mCurrentFrame.mvKeys.size()<100)
+        {
+            delete mpReInitial;
+            mpReInitial = static_cast<Initializer*>(NULL);
+            fill(mvIniMatches.begin(),mvIniMatches.end(),-1);
+            return false;
+        }
+
+        ORBmatcher matcher(0.9,true);
+        int nmatches = matcher.SearchForInitialization(mReInitFrame,mCurrentFrame,mvbPrevMatched,mvIniMatches,100);
+        
+        if (nmatches<100)
+        {
+            delete mpReInitial;
+            mpReInitial = static_cast<Initializer*>(NULL);
+            return false;
+        }
+
+        cv::Mat R21;
+        cv::Mat t21;
+        vector<bool> vbTriangulated;
+        bool isRe = false;
+        if (mpReInitial->ReInitialize(mReInitFrame,mCurrentFrame,mvIniMatches,R21,t21,mvIniP3D,vbTriangulated))
+        {
+            for (size_t i = 0; i < mvIniMatches.size(); i++)
+            {
+                if (mvIniMatches[i] >=0 && !vbTriangulated[i])
+                {
+                    mvIniMatches[i]=-1;
+                    nmatches--;
+                }
+            }
+            
+            cv::Mat T21 = cv::Mat::eye(4,4,CV_32F);
+            R21.copyTo(T21.rowRange(0,3).colRange(0,3));
+            t21.copyTo(T21.rowRange(0,3).col(3));
+            cv::Mat Tcw = T21 * mReInitFrame.mTcw;
+            mCurrentFrame.SetPose(Tcw);
+
+            isRe = CreateReInitialMapPoints();
+        }
+
+        return isRe;
+    }  
+
+    return false;  
+}
+
 void Tracking::Reset()
 {
 
@@ -1700,5 +1918,25 @@ void Tracking::DrawInTwc_ptr_(const cv::Mat &T, double r, double g, double b, st
     Tpoint.z = Draw_pose.translation()[2];
     Twc_ptr_->addSphere(Tpoint, 0.1, r, g, b, name);
 }
+
+cv::Mat Tracking::GetPriorMotion()
+{
+    cv::Mat Twb_last = mLastFrame.GetGTPoseTwb(); // mLastFrame.GetOdomPoseTwb(); //mLastFrame.GetGTPoseTwb();
+    cv::Mat Twb_now  = mCurrentFrame.GetGTPoseTwb(); // mCurrentFrame.GetOdomPoseTwb(); //mCurrentFrame.GetGTPoseTwb();
+    cv::Mat Twc_last = Converter::Twb2Twc(Twb_last);
+    cv::Mat Tcw_now = Converter::Twb2Tcw(Twb_now);
+
+    cv::Mat deltaTcw = Tcw_now*Twc_last;
+
+    // delta cannot preIntergert.
+    // cv::Mat Tb2b1 = Converter::invT(Twb_now) * Twb_last;
+    // cv::Mat Tc2c1 = Frame::Tcb * Tb2b1 * Frame::Tbc;
+    // cout << "Tb2b1 : " << Tb2b1 << endl << "norm is " << norm(Tb2b1.rowRange(0,3).col(3)) << endl;
+    // cout << "Tc2c1 : " << Tc2c1 << endl << "norm is " << norm(Tc2c1.rowRange(0,3).col(3)) << endl;
+    // cout << "deltaTcw : " << deltaTcw << endl << "norm is " << norm(deltaTcw.rowRange(0,3).col(3)) << endl;
+
+    return deltaTcw.clone();
+}
+
 
 } //namespace ORB_SLAM

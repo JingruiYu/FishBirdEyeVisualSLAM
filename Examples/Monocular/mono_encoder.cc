@@ -121,9 +121,9 @@ int main(int argc, char **argv)
         }
         else
         {
-            // cv::Mat bird_masked;
-            // applyMaskBirdview(birdviewmask,bird_masked,BirdMask);
-            // birdviewmask = bird_masked.clone();
+            cv::Mat bird_masked;
+            applyMaskBirdview(birdviewmask,bird_masked,BirdMask);
+            birdviewmask = bird_masked.clone();
             ConvertMaskBirdview(birdviewmask,birdviewmask);
         }
 
