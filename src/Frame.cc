@@ -788,28 +788,7 @@ cv::Mat Frame::UnprojectStereo(const int &i)
 }
 
 /********************* Modified Here *********************/
-// void Frame::CalculateExtrinsics()
-// {
-//     cv::Mat tbc=(cv::Mat_<float>(3,1)<<-0.012, 2.746, -2.654);
-//     //static cv::Mat qbc=(cv::Mat_<float>(4,1)<<0.631, -0.623, 0.325, 0.330);
-//     float qx=0.631,qy=-0.623,qz=0.325,qw=0.330;
-//     cv::Mat Rcb=(cv::Mat_<float>(3,3)<<1-2*(qy*qy+qz*qz),  2*(qx*qy-qw*qz),    2*(qx*qz+qw*qy),
-//                                                 2*(qx*qy+qw*qz),  1-2*(qx*qx+qz*qz),  2*(qy*qz-qw*qx),
-//                                                 2*(qx*qz-qw*qy),  2*(qy*qz+qw*qx),    1-2*(qx*qx+qy*qy));
-//     // Rcb=Rcb.t();
-//     //Extrinsics : odometer and front camera
-//     Tbc=cv::Mat::eye(4,4,CV_32F);
-//     Tcb=cv::Mat::eye(4,4,CV_32F);
-//     Rcb.copyTo(Tcb.rowRange(0,3).colRange(0,3));
-//     tbc.copyTo(Tcb.rowRange(0,3).col(3));
-//     cv::Mat Rbc=Rcb.t();
-//     cv::Mat tcb=-Rbc*tbc;
-//     Rbc.copyTo(Tbc.rowRange(0,3).colRange(0,3));
-//     tcb.copyTo(Tbc.rowRange(0,3).col(3));
-//     cout<<"extrinsics: "<<endl;
-//     cout<<"Tbc = "<<endl<<Tbc<<endl;
-//     cout<<"Tcb = "<<endl<<Tcb<<endl;
-// }
+
 void Frame::CalculateExtrinsics()
 {
     // from front camera to base footprint
@@ -823,7 +802,8 @@ void Frame::CalculateExtrinsics()
     tbc.copyTo(Tbc.rowRange(0,3).col(3));
 
     Tcb = cv::Mat::eye(4,4,CV_32F);
-    cv::Mat Rcb = Rbc.t();
+    // cv::Mat Rcb = Rbc.t();
+    cv::Mat Rcb = Rbc.inv();
     cv::Mat tcb = -Rcb*tbc;
     Rcb.copyTo(Tcb.rowRange(0,3).colRange(0,3));
     tcb.copyTo(Tcb.rowRange(0,3).col(3));

@@ -215,4 +215,70 @@ cv::Mat Converter::Tcw2Twb_c(const cv::Mat &Tcw)
     return Twb_c.clone();
 }
 
+cv::Mat Converter::Tbb2Tcc(const cv::Mat &Tbb)
+{
+    cv::Mat Tcc = Frame::Tcb * Tbb * Frame::Tbc;
+
+    // cv::Mat Rcb = Frame::Tcb.rowRange(0,3).colRange(0,3);
+    // cv::Mat tcb = Frame::Tcb.rowRange(0,3).col(3);
+    // cv::Mat Rbc = Frame::Tbc.rowRange(0,3).colRange(0,3);
+    // cv::Mat tbc = Frame::Tbc.rowRange(0,3).col(3);
+
+    // cv::Mat Rbb = Tbb.rowRange(0,3).colRange(0,3);
+    // cv::Mat tbb = Tbb.rowRange(0,3).col(3);
+
+    // cv::Mat Rcc = Rcb * Rbb * Rbc;
+    // cv::Mat tcc = Rcb*Rbb*tbc + Rcb*tbb + tcb;
+
+    // cv::Mat Tcc = cv::Mat::eye(4,4,CV_32F);
+    // Rcc.copyTo(Tcc.rowRange(0,3).colRange(0,3));
+    // tcc.copyTo(Tcc.rowRange(0,3).col(3));
+
+    return Tcc.clone();
+}
+
+
+cv::Mat Converter::GetTbi2bi1FromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2)
+{
+    //odometer pose
+    double x1=odomPose1[0],y1=odomPose1[1],theta1=odomPose1[2];
+    double x2=odomPose2[0],y2=odomPose2[1],theta2=odomPose2[2];
+
+    //pre-integration terms
+    double theta12=theta2-theta1;
+    double x12=(x2-x1)*cos(theta1)+(y2-y1)*sin(theta1);
+    double y12=(y2-y1)*cos(theta1)-(x2-x1)*sin(theta1);
+
+    //T12
+    cv::Mat T12b=(cv::Mat_<float>(4,4)<<cos(theta12),-sin(theta12),0,x12,
+                                        sin(theta12), cos(theta12),0,y12,
+                                             0,            0,      1, 0,
+                                             0,            0,      0, 1);
+
+    return T12b.clone();
+}
+
+cv::Mat Converter::GetTci1ci2FromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2)
+{
+    //odometer pose
+    double x1=odomPose1[0],y1=odomPose1[1],theta1=odomPose1[2];
+    double x2=odomPose2[0],y2=odomPose2[1],theta2=odomPose2[2];
+
+    //pre-integration terms
+    double theta12=theta2-theta1;
+    double x12=(x2-x1)*cos(theta1)+(y2-y1)*sin(theta1);
+    double y12=(y2-y1)*cos(theta1)-(x2-x1)*sin(theta1);
+
+    //T12
+    cv::Mat T12b=(cv::Mat_<float>(4,4)<<cos(theta12),-sin(theta12),0,x12,
+                                        sin(theta12), cos(theta12),0,y12,
+                                             0,            0,      1, 0,
+                                             0,            0,      0, 1);
+    cv::Mat T12c=Frame::Tcb*T12b*Frame::Tbc;
+
+    cv::Mat T21c = invT(T12c);
+
+    return T21c.clone();
+}
+
 } //namespace ORB_SLAM

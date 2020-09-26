@@ -30,6 +30,7 @@
 bool bTightCouple=true;
 bool bLooseCouple=true;
 bool bFixScale=true;
+bool bHaveBird = true;
 
 namespace ORB_SLAM2
 {
@@ -317,8 +318,7 @@ cv::Mat System::TrackMonocularWithOdom(const cv::Mat &im, const cv::Mat &birdvie
         }
     }
 
-    //cv::Mat Tcw = mpTracker->GrabImageMonocular(im,timestamp);
-    cv::Mat Tcw = mpTracker->GrabImageMonocularWithOdom(im,timestamp,gtPose);
+    cv::Mat Tcw = mpTracker->GrabImageMonocularWithOdom(im,birdview,birdviewmask,birdviewContour,birdviewContourICP,timestamp,odomPose,gtPose);
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;

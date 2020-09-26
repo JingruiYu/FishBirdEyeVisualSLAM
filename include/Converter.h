@@ -58,6 +58,10 @@ public:
     static cv::Mat Twb2Twc(const cv::Mat &Twb);
     static cv::Mat Twb2Twb_c(const cv::Mat &Twb);
     static cv::Mat Tcw2Twb_c(const cv::Mat &Tcw);
+    static cv::Mat Tbb2Tcc(const cv::Mat &Tbb);
+
+    static cv::Mat GetTbi2bi1FromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2);
+    static cv::Mat GetTci1ci2FromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2);
 };
 
 }// namespace ORB_SLAM

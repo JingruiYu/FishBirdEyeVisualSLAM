@@ -163,6 +163,9 @@ int main(int argc, char **argv)
         std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
 #endif
 
+        // if (ni % 10 == 0)          
+            cout << endl << "it is frame ..................... " << ni << endl;
+            
         // Pass the image to the SLAM system
         //SLAM.TrackMonocular(im,tframe);
         SLAM.TrackMonocularWithOdom(im,birdview,birdviewmask,birdviewContour,birdviewContourICP,gtPose,odomPose,tframe);
@@ -188,6 +191,7 @@ int main(int argc, char **argv)
             usleep((T-ttrack)*1e6);
     }
     // cv::waitKey(0);
+    getchar();
     // Stop all threads
     SLAM.Shutdown();
 

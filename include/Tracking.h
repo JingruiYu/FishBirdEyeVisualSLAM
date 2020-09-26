@@ -70,7 +70,9 @@ public:
     cv::Mat GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp);
     cv::Mat GrabImageMonocular(const cv::Mat &im, const double &timestamp);
     /********************* Modified Here *********************/
-    cv::Mat GrabImageMonocularWithOdom(const cv::Mat &im, const double &timestamp, cv::Vec3d odomPose);
+    cv::Mat GrabImageMonocularWithOdom(const cv::Mat &im, const cv::Mat &birdview, const cv::Mat &birdviewmask, 
+                                       const cv::Mat &birdviewContour, const cv::Mat &birdviewContourICP, 
+                                       const double &timestamp, cv::Vec3d odomPose, cv::Vec3d gtPose);
 
     void SetLocalMapper(LocalMapping* pLocalMapper);
     void SetLoopClosing(LoopClosing* pLoopClosing);
@@ -84,7 +86,10 @@ public:
     // Use this function if you have deactivated local mapping and you only want to localize the camera.
     void InformOnlyTracking(const bool &flag);
     void DrawInTwc_ptr_(const cv::Mat &T, double r, double g, double b, string name);
+    void DrawInTwb_ptr_(const cv::Mat &T, double r, double g, double b, string name);
 
+    void DrawTwb_cPose(const cv::Mat &Twb_c, double r, double g, double b, string name);
+    void DrawTwbPose(const cv::Mat &Twb, double r, double g, double b, string name);
     void DrawCurPose(const cv::Mat &Tcw, double r, double g, double b, string name);
     void DrawGT(double r, double g, double b, string name);
 
@@ -117,6 +122,9 @@ public:
     std::vector<cv::Point3f> mvIniP3D;
     Frame mInitialFrame;
     Frame mReInitFrame;
+    Frame* tmpRefFrame;
+    std::vector<Frame*> tmpvFrame;
+
 
     // Lists used to recover the full camera trajectory at the end of the execution.
     // Basically we store the reference keyframe for each frame and its relative transformation
@@ -130,6 +138,7 @@ public:
     bool IsReInit;
 
     pcl::visualization::PCLVisualizer::Ptr Twc_ptr_;
+    pcl::visualization::PCLVisualizer::Ptr Twb_ptr_;
 
     void Reset();
 
@@ -138,6 +147,7 @@ public:
 protected:
 
     // Main tracking function. It is independent of the input sensor.
+    void TrackB();
     void Track();
 
     // Map initialization for stereo and RGB-D
@@ -232,6 +242,8 @@ protected:
 
     //Motion Model
     cv::Mat mVelocity;
+    cv::Mat tmpTwb;
+    cv::Mat tmpTwc;
 
     //Color order (true RGB, false BGR, ignored if grayscale)
     bool mbRGB;

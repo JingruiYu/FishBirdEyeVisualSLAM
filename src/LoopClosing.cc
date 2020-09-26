@@ -651,6 +651,7 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
     int idx =  mnFullBAIdx;
     if(mpCurrentKF->mbHaveOdom&&bTightCouple)
     {
+        cout << "\033[31m" << "bTightCouple is true" << "\033[0m" << endl;
         Optimizer::GlobalBundleAdjustemntWithOdom(mpMap,10,&mbStopGBA,nLoopKF,false);
     }
     else

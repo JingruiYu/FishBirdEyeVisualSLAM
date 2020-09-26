@@ -8,3 +8,6 @@ Using the Encoder code, Get the prior T. Good Performance.
 
 v0.2:
 Lost and ReInit. No test. 
+
+v0.3:
+Using GT pose for TrackB(). Modified the extern parameters.

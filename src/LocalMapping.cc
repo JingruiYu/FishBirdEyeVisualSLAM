@@ -85,6 +85,8 @@ void LocalMapping::Run()
                 {
                     if(mpCurrentKeyFrame->mbHaveOdom&&bTightCouple)
                     {
+                        cout << "\033[31m" << "bTightCouple is true" << "\033[0m" << endl;
+
                         Optimizer::LocalBundleAdjustmentWithOdom(mpCurrentKeyFrame,&mbAbortBA, mpMap);
                     }
                     else

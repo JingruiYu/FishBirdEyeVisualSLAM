@@ -1426,7 +1426,7 @@ void Optimizer::BundleAdjustmentWithOdom(const vector<KeyFrame *> &vpKFs, const 
         // KeyFrame *KF2=*KFnext;
         KeyFrame *KF1=KFit->second;
         KeyFrame *KF2=KFnext->second;
-        Eigen::Matrix4d T12=Converter::toMatrix4d(Frame::GetTransformFromOdometer(KF1->mOdomPose,KF2->mOdomPose));
+        Eigen::Matrix4d T12=Converter::toMatrix4d(Frame::GetTransformFromOdometer(KF1->mGtPose,KF2->mGtPose));
 #ifdef USE_SOPHUS
         EdgeSE3LieAlgebra *e=new EdgeSE3LieAlgebra();
         e->setMeasurement(SE3(T12.block(0,0,3,3),T12.block(0,3,3,1)));
@@ -1747,7 +1747,7 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
     {
         KeyFrame *KF1=*KFit;
         KeyFrame *KF2=*KFnext;
-        Eigen::Matrix4d T12=Converter::toMatrix4d(Frame::GetTransformFromOdometer(KF1->mOdomPose,KF2->mOdomPose));
+        Eigen::Matrix4d T12=Converter::toMatrix4d(Frame::GetTransformFromOdometer(KF1->mGtPose,KF2->mGtPose));
 #ifdef USE_SOPHUS
         EdgeSE3LieAlgebra *e=new EdgeSE3LieAlgebra();
         e->setMeasurement(SE3(T12.block(0,0,3,3),T12.block(0,3,3,1)));
@@ -1776,7 +1776,7 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
         if(KFextra!=vLocalKeyFrames.end())
         {
             KeyFrame *KF3=*KFextra;
-            Eigen::Matrix4d T13=Converter::toMatrix4d(Frame::GetTransformFromOdometer(KF1->mOdomPose,KF3->mOdomPose));
+            Eigen::Matrix4d T13=Converter::toMatrix4d(Frame::GetTransformFromOdometer(KF1->mGtPose,KF3->mGtPose));
 #ifdef USE_SOPHUS
             EdgeSE3LieAlgebra *e=new EdgeSE3LieAlgebra();
             e->setMeasurement(SE3(T13.block(0,0,3,3),T13.block(0,3,3,1)));
@@ -1795,7 +1795,7 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
             if(KFextra2!=vLocalKeyFrames.end())
             {
                 KeyFrame *KF4=*KFextra2;
-                Eigen::Matrix4d T14=Converter::toMatrix4d(Frame::GetTransformFromOdometer(KF1->mOdomPose,KF4->mOdomPose));
+                Eigen::Matrix4d T14=Converter::toMatrix4d(Frame::GetTransformFromOdometer(KF1->mGtPose,KF4->mGtPose));
 #ifdef USE_SOPHUS
                 EdgeSE3LieAlgebra *e=new EdgeSE3LieAlgebra();
                 e->setMeasurement(SE3(T14.block(0,0,3,3),T14.block(0,3,3,1)));

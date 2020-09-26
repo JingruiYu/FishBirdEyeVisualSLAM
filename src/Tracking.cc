@@ -50,6 +50,7 @@ namespace ORB_SLAM2
 Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor):
     mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(false), IsReInit(false),
     Twc_ptr_(new pcl::visualization::PCLVisualizer("Twc_viewer")),
+    Twb_ptr_(new pcl::visualization::PCLVisualizer("Twb_viewer")),
     mbVO(false), mpORBVocabulary(pVoc),
     mpKeyFrameDB(pKFDB), mpInitializer(static_cast<Initializer*>(NULL)), mpSystem(pSys), mpViewer(NULL),
     mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpMap(pMap), mnLastRelocFrameId(0)
@@ -158,6 +159,12 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     Twc_ptr_->setBackgroundColor(0, 0, 0, v1);
     Twc_ptr_->addCoordinateSystem(1.0, 0.0, 0.0, 0.3, "vehicle_frame", v1);
     Twc_ptr_->addCoordinateSystem(1.0, 0.0, 0.0, 0.0, "map_frame", v1);
+
+    Twb_ptr_->createViewPort(0.0, 0.0, 1.0, 1.0, v1);
+    Twb_ptr_->createViewPortCamera(v1);
+    Twb_ptr_->setBackgroundColor(0, 0, 0, v1);
+    Twb_ptr_->addCoordinateSystem(1.0, 0.0, 0.0, 0.3, "vehicle_frame", v1);
+    Twb_ptr_->addCoordinateSystem(1.0, 0.0, 0.0, 0.0, "map_frame", v1);
 
 }
 
@@ -321,9 +328,43 @@ cv::Mat Tracking::GrabImageMonocularWithOdom(const cv::Mat &im, const cv::Mat &b
     else
         mCurrentFrame = Frame(mImGray,BirdGray,birdviewmask,birdviewContour,birdviewContourICP,timestamp,odomPose,gtPose,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
-    Track();
+    // Track();
+    TrackB();
 
     return mCurrentFrame.mTcw.clone();
+}
+
+void Tracking::TrackB()
+{
+    if (!tmpRefFrame)
+    {
+        tmpRefFrame = new Frame(mCurrentFrame);
+        tmpTwb = cv::Mat::eye(4,4,CV_32F);
+        tmpTwc = cv::Mat::eye(4,4,CV_32F);
+        tmpvFrame.push_back(tmpRefFrame);
+        cout << "tmpvFrame.size(): " << tmpvFrame.size() << endl;
+    }
+    else
+    {        
+        cv::Mat T_from_bi2_to_bi1 = Converter::GetTbi2bi1FromOdometer(tmpRefFrame->mGtPose,mCurrentFrame.mGtPose); 
+        tmpTwb = tmpTwb * T_from_bi2_to_bi1;  
+
+        cout << "norm b: " << norm(T_from_bi2_to_bi1.rowRange(0,3).col(3)) << endl;
+
+        cv::Mat T_from_ci2_to_ci1 = Frame::GetTransformFromOdometer(tmpRefFrame->mGtPose,mCurrentFrame.mGtPose);       
+        tmpTwc = tmpTwc * T_from_ci2_to_ci1;
+        cout << "norm c: " << norm(T_from_ci2_to_ci1.rowRange(0,3).col(3)) << endl;
+
+        tmpRefFrame = new Frame(mCurrentFrame); 
+        tmpvFrame.push_back(tmpRefFrame);   
+       
+        cout << "tmpvFrame.size(): -2 : " << tmpvFrame.size() << endl;
+    }
+
+    cv::Mat Twb_c = Frame::Tbc * tmpTwc;
+    DrawTwb_cPose(Twb_c,0,150,0,"GTwb_c");
+    DrawTwbPose(tmpTwb,0,150,0,"GTwb");
+    DrawGT(0,0,150,"GroundTruth");
 }
 
 void Tracking::Track()
@@ -1890,6 +1931,20 @@ void Tracking::InformOnlyTracking(const bool &flag)
     mbOnlyTracking = flag;
 }
 
+void Tracking::DrawTwb_cPose(const cv::Mat &Twb_c, double r, double g, double b, string name)
+{
+    string waypoint_name = name + to_string(mCurrentFrame.mnId);
+    
+    DrawInTwc_ptr_(Twb_c,r,g,b,waypoint_name);
+}
+
+void Tracking::DrawTwbPose(const cv::Mat &Twb, double r, double g, double b, string name)
+{
+    string waypoint_name = name + to_string(mCurrentFrame.mnId);
+    
+    DrawInTwb_ptr_(Twb,r,g,b,waypoint_name);
+}
+
 void Tracking::DrawCurPose(const cv::Mat &Tcw, double r, double g, double b, string name)
 {
     cv::Mat Cur_Twb_c = Converter::Tcw2Twb_c(Tcw);
@@ -1904,7 +1959,9 @@ void Tracking::DrawGT(double r, double g, double b, string name)
     cv::Mat GT_Twb_c = Converter::Twb2Twb_c(GT_Twb);
     string waypoint_name = name + to_string(mCurrentFrame.mnId);
     DrawInTwc_ptr_(GT_Twb_c,r,g,b,waypoint_name);
+    DrawInTwb_ptr_(GT_Twb,r,g,b,waypoint_name);
     Twc_ptr_->spinOnce();
+    Twb_ptr_->spinOnce();
 }
 
 
@@ -1917,6 +1974,18 @@ void Tracking::DrawInTwc_ptr_(const cv::Mat &T, double r, double g, double b, st
     Tpoint.y = Draw_pose.translation()[1];
     Tpoint.z = Draw_pose.translation()[2];
     Twc_ptr_->addSphere(Tpoint, 0.1, r, g, b, name);
+}
+
+
+void Tracking::DrawInTwb_ptr_(const cv::Mat &T, double r, double g, double b, string name)
+{
+    Eigen::Affine3f Draw_pose;
+    Draw_pose.matrix() = Converter::toMatrix4f(T);
+    birdseye_odometry::SemanticPoint Tpoint;
+    Tpoint.x = Draw_pose.translation()[0];
+    Tpoint.y = Draw_pose.translation()[1];
+    Tpoint.z = Draw_pose.translation()[2];
+    Twb_ptr_->addSphere(Tpoint, 0.1, r, g, b, name);
 }
 
 cv::Mat Tracking::GetPriorMotion()
