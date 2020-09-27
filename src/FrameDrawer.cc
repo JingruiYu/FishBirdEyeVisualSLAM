@@ -125,6 +125,34 @@ cv::Mat FrameDrawer::DrawFrame()
     return imWithInfo;
 }
 
+cv::Mat FrameDrawer::DrawBird()
+{
+    cv::Mat imForDraw;
+    mBirdIm.copyTo(imForDraw);
+
+    const float r = 5;
+    
+    for (int i = 0; i < mvCurrentBirdKeys.size(); i++)
+    {
+        cv::Point2f pt1,pt2;
+        pt1.x=mvCurrentBirdKeys[i].pt.x-r;
+        pt1.y=mvCurrentBirdKeys[i].pt.y-r;
+        pt2.x=mvCurrentBirdKeys[i].pt.x+r;
+        pt2.y=mvCurrentBirdKeys[i].pt.y+r;
+
+        cv::rectangle(imForDraw,pt1,pt2,cv::Scalar(0,255,0));
+        cv::circle(imForDraw,mvCurrentBirdKeys[i].pt,2,cv::Scalar(0,255,0),-1);
+    }
+
+    cout << "mvCurrentBirdKeys.size() : " << mvCurrentBirdKeys.size() << endl;
+    
+    return imForDraw;
+}
+
+cv::Mat FrameDrawer::DrawBirdMask()
+{
+    return mBirdMask;
+}
 
 void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
 {
@@ -174,6 +202,9 @@ void FrameDrawer::Update(Tracking *pTracker)
     mvbMap = vector<bool>(N,false);
     mbOnlyTracking = pTracker->mbOnlyTracking;
 
+    pTracker->mCurrentFrame.mBirdviewImg.copyTo(mBirdIm);
+    pTracker->mCurrentFrame.mBirdviewMask.copyTo(mBirdMask);
+    mvCurrentBirdKeys = pTracker->mCurrentFrame.mvKeysBird;
 
     if(pTracker->mLastProcessedState==Tracking::NOT_INITIALIZED)
     {

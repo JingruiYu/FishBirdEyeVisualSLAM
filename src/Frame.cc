@@ -33,6 +33,15 @@ float Frame::mnMinX, Frame::mnMinY, Frame::mnMaxX, Frame::mnMaxY;
 float Frame::mfGridElementWidthInv, Frame::mfGridElementHeightInv;
 /********************* Modified Here *********************/
 cv::Mat Frame::Tbc,Frame::Tcb;
+float Frame::mfGridElementWidthInvBirdview, Frame::mfGridElementHeightInvBirdview;
+int Frame::birdviewRows, Frame::birdviewCols;
+
+const double correction = 1;
+const double Frame::pixel2meter = 0.03984*correction;
+const double Frame::meter2pixel = 25.1/correction;
+const double Frame::rear_axle_to_center = 1.393;
+const double Frame::vehicle_length = 4.63;
+const double Frame::vehicle_width = 1.901;
 
 Frame::Frame()
 {}
@@ -258,6 +267,12 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &bird
         mfGridElementWidthInv=static_cast<float>(FRAME_GRID_COLS)/static_cast<float>(mnMaxX-mnMinX);
         mfGridElementHeightInv=static_cast<float>(FRAME_GRID_ROWS)/static_cast<float>(mnMaxY-mnMinY);
 
+        birdviewCols = BirdGray.cols;
+        birdviewRows = BirdGray.rows;
+
+        mfGridElementWidthInvBirdview=static_cast<float>(FRAME_GRID_BIRD)/static_cast<float>(birdviewCols);
+        mfGridElementHeightInvBirdview=static_cast<float>(FRAME_GRID_BIRD)/static_cast<float>(birdviewRows);
+
         fx = K.at<float>(0,0);
         fy = K.at<float>(1,1);
         cx = K.at<float>(0,2);
@@ -298,13 +313,45 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &bird
     mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));
     mvbOutlier = vector<bool>(N,false);
 
-    AssignFeaturesToGrid();
-
     mImg = imGray.clone();
     mBirdviewImg = BirdGray.clone();
     mBirdviewMask = birdviewmask.clone();
     mBirdviewContour = birdviewContour.clone();
     mBirdviewContourICP = birdviewContourICP.clone();
+
+    cv::Ptr<cv::ORB> extractorBird = cv::ORB::create(2000);
+    extractorBird->detect(mBirdviewImg,mvKeysBird,mBirdviewMask);
+    // extractorBird->detect(mBirdviewImg,mvKeysBird);
+
+    vector<cv::Point2f> vKeysBird(mvKeysBird.size());
+    for(int k=0;k<mvKeysBird.size();k++)
+        vKeysBird[k] = mvKeysBird[k].pt;
+    
+    cv::TermCriteria criteria = cv::TermCriteria(cv::TermCriteria::EPS+cv::TermCriteria::MAX_ITER,40,0.001);
+    cv::cornerSubPix(mBirdviewImg,vKeysBird,cv::Size(5,5),cv::Size(-1,-1),criteria);
+    for(int k=0;k<mvKeysBird.size();k++)
+        mvKeysBird[k].pt = vKeysBird[k];
+
+    extractorBird->compute(mBirdviewImg,mvKeysBird,mDescriptorsBird);
+
+    Nbird = mvKeysBird.size();
+    
+    mvpMapPointsBird = vector<MapPointBird*>(mvKeysBird.size(),static_cast<MapPointBird*>(NULL));  
+
+    mvKeysBirdCamXYZ.resize(mvKeysBird.size());
+    mvKeysBirdBaseXY.resize(mvKeysBird.size());
+    for(int k=0;k<mvKeysBird.size();k++)
+    {
+        cv::Point3f p3d = Converter::BirdPixel2BaseXY(mvKeysBird[k]);
+        cv::Point2f p2d;
+        p2d.x = p3d.x;
+        p2d.y = p3d.y;
+        mvKeysBirdBaseXY[k] = p2d;
+        mvKeysBirdCamXYZ[k] = Converter::BaseXY2CamXYZ(p3d);
+    }
+
+
+    AssignFeaturesToGrid();
 }
 
 void Frame::AssignFeaturesToGrid()
@@ -321,6 +368,21 @@ void Frame::AssignFeaturesToGrid()
         int nGridPosX, nGridPosY;
         if(PosInGrid(kp,nGridPosX,nGridPosY))
             mGrid[nGridPosX][nGridPosY].push_back(i);
+    }
+
+
+    int nReserveBird = 0.5f*Nbird/(FRAME_GRID_BIRD*FRAME_GRID_BIRD);
+    for(unsigned int i=0; i<FRAME_GRID_BIRD;i++)
+        for (unsigned int j=0; j<FRAME_GRID_BIRD;j++)
+            mGridBirdview[i][j].reserve(nReserveBird);
+
+    for(int i=0;i<Nbird;i++)
+    {
+        const cv::KeyPoint &kp = mvKeysBird[i];
+
+        int nGridPosX, nGridPosY;
+        if(PosInGridBirdview(kp,nGridPosX,nGridPosY))
+            mGridBirdview[nGridPosX][nGridPosY].push_back(i);
     }
 }
 
@@ -471,6 +533,17 @@ bool Frame::PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY)
     return true;
 }  
 
+bool Frame::PosInGridBirdview(const cv::KeyPoint &kp, int &posX, int &posY)
+{
+    posX = round(kp.pt.x*mfGridElementWidthInvBirdview);
+    posY = round(kp.pt.y*mfGridElementHeightInvBirdview);
+
+    //Keypoint's coordinates are undistorted, which could cause to go out of the image
+    if(posX<0 || posX>=FRAME_GRID_BIRD || posY<0 || posY>=FRAME_GRID_BIRD)
+        return false;
+
+    return true;
+} 
 
 void Frame::ComputeBoW()
 {

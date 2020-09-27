@@ -145,6 +145,10 @@ bool Initializer::ReInitialize(const Frame &ReInitFrame, const Frame &CurrentFra
     // Reference Frame: 1, Current Frame: 2
     mvKeys2 = CurrentFrame.mvKeysUn;
     /********************* Modified Here *********************/
+    mRefFrame = Frame(ReInitFrame);
+    if (ReInitFrame.mTcw.empty())
+        cout << "mRefFrame.mTcw is empty, which may not exit? " << endl;
+        
     mCurFrame = Frame(CurrentFrame);
     
     mvMatches12.clear();

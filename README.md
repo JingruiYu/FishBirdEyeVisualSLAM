@@ -11,3 +11,6 @@ Lost and ReInit. No test.
 
 v0.3:
 Using GT pose for TrackB(). Modified the extern parameters.
+
+v0.4:
+Get the bird's key points. The bird mask is changed. The re initialization may have some problem.

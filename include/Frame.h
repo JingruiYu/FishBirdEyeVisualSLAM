@@ -29,6 +29,7 @@
 #include "ORBVocabulary.h"
 #include "KeyFrame.h"
 #include "ORBextractor.h"
+#include "MapPointBird.h"
 
 #include <opencv2/opencv.hpp>
 
@@ -36,9 +37,11 @@ namespace ORB_SLAM2
 {
 #define FRAME_GRID_ROWS 48
 #define FRAME_GRID_COLS 64
+#define FRAME_GRID_BIRD 32
 
 class MapPoint;
 class KeyFrame;
+class MapPointBird;
 
 class Frame
 {
@@ -93,6 +96,8 @@ public:
 
     vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, const int minLevel=-1, const int maxLevel=-1) const;
 
+    bool PosInGridBirdview(const cv::KeyPoint &kp, int &posX, int &posY);
+
     // Search a match for each keypoint in the left image to a keypoint in the right image.
     // If there is a match, depth is computed and the right coordinate associated to the left keypoint is stored.
     void ComputeStereoMatches();
@@ -132,6 +137,13 @@ public:
     /********************* Modified Here *********************/
     //front camera - odometer extrinsics
     static cv::Mat Tbc,Tcb;
+    static int birdviewRows, birdviewCols;
+    // vehicle parameters
+    static const double pixel2meter;
+    static const double meter2pixel;
+    static const double rear_axle_to_center;
+    static const double vehicle_length;
+    static const double vehicle_width;
 
     // Stereo baseline multiplied by fx.
     float mbf;
@@ -145,12 +157,19 @@ public:
 
     // Number of KeyPoints.
     int N;
-
+    int Nbird;  //number of birdview keypoints
+    
     // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
     // In the stereo case, mvKeysUn is redundant as images must be rectified.
     // In the RGB-D case, RGB images can be distorted.
     std::vector<cv::KeyPoint> mvKeys, mvKeysRight;
     std::vector<cv::KeyPoint> mvKeysUn;
+
+    std::vector<cv::KeyPoint> mvKeysBird;
+    std::vector<cv::Point3f> mvKeysBirdCamXYZ;
+    std::vector<cv::Point2f> mvKeysBirdBaseXY;
+    std::vector<MapPointBird*> mvpMapPointsBird;
+    cv::Mat mDescriptorsBird;
 
     // Corresponding stereo coordinate and depth for each keypoint.
     // "Monocular" keypoints have a negative value.
@@ -164,7 +183,7 @@ public:
     cv::Mat mBirdviewMask;
     cv::Mat mBirdviewContour;
     cv::Mat mBirdviewContourICP;
-    cv::Vec3b mOdomPose;
+    cv::Vec3d mOdomPose;
     cv::Vec3d mGtPose; //mGtPose
     bool mbHaveOdom;
 
@@ -185,6 +204,10 @@ public:
     static float mfGridElementWidthInv;
     static float mfGridElementHeightInv;
     std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
+
+    static float mfGridElementWidthInvBirdview;
+    static float mfGridElementHeightInvBirdview;
+    std::vector<std::size_t> mGridBirdview[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     // Camera pose.
     cv::Mat mTcw;

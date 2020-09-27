@@ -268,7 +268,7 @@ void applyMaskBirdview(const cv::Mat& src, cv::Mat& dst, const cv::Mat& mask)
     for (int j = 0; j < src.cols; ++j)
     {
       cv::Vec3b pixel = mask.at<cv::Vec3b>(i, j);
-      if (pixel[1] < 20)
+      if (pixel[0] < 20 && pixel[1] < 20 && pixel[2] < 20)
         dst.at<cv::Vec3b>(i, j) = 0;
     }
 }

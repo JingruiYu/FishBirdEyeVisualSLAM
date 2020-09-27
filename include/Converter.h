@@ -62,6 +62,9 @@ public:
 
     static cv::Mat GetTbi2bi1FromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2);
     static cv::Mat GetTci1ci2FromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2);
+
+    static cv::Point3f BirdPixel2BaseXY(const cv::KeyPoint &kp);
+    static cv::Point3f BaseXY2CamXYZ(cv::Point3f p);
 };
 
 }// namespace ORB_SLAM

@@ -281,4 +281,22 @@ cv::Mat Converter::GetTci1ci2FromOdometer(const cv::Vec3d &odomPose1, const cv::
     return T21c.clone();
 }
 
+cv::Point3f Converter::BirdPixel2BaseXY(const cv::KeyPoint &kp)
+{
+    cv::Point3f p;
+    p.x = (Frame::birdviewRows/2-kp.pt.y)*Frame::pixel2meter+Frame::rear_axle_to_center;
+    p.y = (Frame::birdviewCols/2-kp.pt.x)*Frame::pixel2meter;
+    p.z = 0;
+
+    return p;
+}
+
+cv::Point3f Converter::BaseXY2CamXYZ(cv::Point3f p)
+{
+    cv::Mat p_src(p);
+    cv::Mat p_dst = Frame::Tcb.rowRange(0,3).colRange(0,3) * p_src + Frame::Tcb.rowRange(0,3).col(3);
+    
+    return cv::Point3f(p_dst.at<float>(0),p_dst.at<float>(1),p_dst.at<float>(2));
+}
+
 } //namespace ORB_SLAM
