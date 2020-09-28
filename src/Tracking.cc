@@ -359,12 +359,23 @@ void Tracking::TrackB()
         tmpvFrame.push_back(tmpRefFrame);   
        
         cout << "tmpvFrame.size(): -2 : " << tmpvFrame.size() << endl;
+
+        ORBmatcher BirdMatcher(0.9,true);
+        vector<cv::DMatch> vDMatches12;
+        int nmatches = BirdMatcher.BirdviewMatch(mCurrentFrame,tmpRefFrame->mvKeysBird,tmpRefFrame->mDescriptorsBird,tmpRefFrame->mvpMapPointsBird,vDMatches12,0,10);
+        cout << "nmatches:- " << nmatches << " - vDMatches12.size() : - " << vDMatches12.size() << endl;
+
+        vBirdDMatchs.assign(vDMatches12.begin(),vDMatches12.end());
+        cout << "vDMatches12:- " << vDMatches12.size() << " - vBirdDMatchs.size() : - " << vBirdDMatchs.size() << endl;
     }
 
     cv::Mat Twb_c = Frame::Tbc * tmpTwc;
     DrawTwb_cPose(Twb_c,0,150,0,"GTwb_c");
     DrawTwbPose(tmpTwb,0,150,0,"GTwb");
     DrawGT(0,0,150,"GroundTruth");
+
+     
+    mpFrameDrawer->Update(this);
 }
 
 void Tracking::Track()

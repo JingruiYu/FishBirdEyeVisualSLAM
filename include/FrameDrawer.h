@@ -49,6 +49,7 @@ public:
     cv::Mat DrawFrame();
     cv::Mat DrawBird();
     cv::Mat DrawBirdMask();
+    cv::Mat DrawBirdMatches();
 
 protected:
 
@@ -70,6 +71,9 @@ protected:
     cv::Mat mBirdIm;
     cv::Mat mBirdMask;
     vector<cv::KeyPoint> mvCurrentBirdKeys;
+    cv::Mat RefBirdIm;
+    vector<cv::KeyPoint> RefBirdKeys;
+    vector<cv::DMatch> vDMatches12;
 
     std::mutex mMutex;
 };

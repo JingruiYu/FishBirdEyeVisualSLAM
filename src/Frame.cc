@@ -51,8 +51,10 @@ Frame::Frame(const Frame &frame)
     :mpORBvocabulary(frame.mpORBvocabulary), mpORBextractorLeft(frame.mpORBextractorLeft), mpORBextractorRight(frame.mpORBextractorRight),
      mTimeStamp(frame.mTimeStamp), mK(frame.mK.clone()), mDistCoef(frame.mDistCoef.clone()),
      mbf(frame.mbf), mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys),
-     mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn),  mvuRight(frame.mvuRight),
-     mvDepth(frame.mvDepth), 
+     mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn), 
+     mvKeysBird(frame.mvKeysBird), mvKeysBirdCamXYZ(frame.mvKeysBirdCamXYZ), mvKeysBirdBaseXY(frame.mvKeysBirdBaseXY), 
+     mvpMapPointsBird(frame.mvpMapPointsBird), mDescriptorsBird(frame.mDescriptorsBird), 
+     mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), 
      mImg(frame.mImg), mBirdviewImg(frame.mBirdviewImg), mBirdviewMask(frame.mBirdviewMask),
      mBirdviewContour(frame.mBirdviewContour), mBirdviewContourICP(frame.mBirdviewContourICP),
      mOdomPose(frame.mOdomPose), mGtPose(frame.mGtPose),mbHaveOdom(frame.mbHaveOdom),
@@ -67,6 +69,10 @@ Frame::Frame(const Frame &frame)
     for(int i=0;i<FRAME_GRID_COLS;i++)
         for(int j=0; j<FRAME_GRID_ROWS; j++)
             mGrid[i][j]=frame.mGrid[i][j];
+
+    for(int i=0;i<FRAME_GRID_BIRD;i++)
+        for(int j=0; j<FRAME_GRID_BIRD; j++)
+            mGridBirdview[i][j]=frame.mGridBirdview[i][j];
 
     if(!frame.mTcw.empty())
         SetPose(frame.mTcw);
@@ -544,6 +550,62 @@ bool Frame::PosInGridBirdview(const cv::KeyPoint &kp, int &posX, int &posY)
 
     return true;
 } 
+
+vector<size_t> Frame::GetFeaturesInAreaBirdview(const float &x, const float  &y, const float  &r, const int minLevel, const int maxLevel) const
+{
+    vector<size_t> vIndices;
+    vIndices.reserve(mvKeysBird.size());
+
+    const int nMinCellX = max(0,(int)floor((x-r)*mfGridElementWidthInvBirdview));
+    if (nMinCellX >= FRAME_GRID_BIRD)
+        return vIndices;
+    
+    const int nMaxCellX = min((int)FRAME_GRID_BIRD-1,(int)ceil((x+r)*mfGridElementWidthInvBirdview));
+    if (nMaxCellX < 0)
+        return vIndices;
+    
+    const int nMinCellY = max(0,(int)floor((y-r)*mfGridElementHeightInvBirdview));
+    if (nMinCellY >= FRAME_GRID_BIRD)
+        return vIndices;
+    
+    const int nMaxCellY = min((int)FRAME_GRID_BIRD-1,(int)ceil((y+r)*mfGridElementHeightInvBirdview));
+    if (nMaxCellY < 0)
+        return vIndices;
+    
+    const bool bCheckLevels = (minLevel>0) || (maxLevel >= 0);
+
+    for (int ix = nMinCellX; ix < nMaxCellX; ix++)
+    {
+        for (int iy = nMinCellY; iy < nMaxCellY; iy++)
+        {
+            const vector<size_t> vCell = mGridBirdview[ix][iy];
+            if (vCell.empty())
+                continue;
+            
+            for (size_t j = 0; j < vCell.size(); j++)
+            {
+                const cv::KeyPoint &kp = mvKeysBird[vCell[j]];
+
+                if (bCheckLevels)
+                {
+                    if (kp.octave<minLevel)
+                        continue;
+                    if (maxLevel>=0)
+                        if (kp.octave>maxLevel)
+                            continue;                                           
+                }
+
+                const float disx = kp.pt.x - x;
+                const float disy = kp.pt.y - y;
+
+                if (fabs(disx)<r && fabs(disy)<r)
+                    vIndices.push_back(vCell[j]);                
+            }
+        }
+    }
+
+    return vIndices;
+}
 
 void Frame::ComputeBoW()
 {

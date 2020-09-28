@@ -98,6 +98,8 @@ public:
 
     bool PosInGridBirdview(const cv::KeyPoint &kp, int &posX, int &posY);
 
+    vector<size_t> GetFeaturesInAreaBirdview(const float &x, const float  &y, const float  &r, const int minLevel=-1, const int maxLevel=-1) const;
+
     // Search a match for each keypoint in the left image to a keypoint in the right image.
     // If there is a match, depth is computed and the right coordinate associated to the left keypoint is stored.
     void ComputeStereoMatches();
@@ -207,7 +209,7 @@ public:
 
     static float mfGridElementWidthInvBirdview;
     static float mfGridElementHeightInvBirdview;
-    std::vector<std::size_t> mGridBirdview[FRAME_GRID_COLS][FRAME_GRID_ROWS];
+    std::vector<std::size_t> mGridBirdview[FRAME_GRID_BIRD][FRAME_GRID_BIRD];
 
     // Camera pose.
     cv::Mat mTcw;

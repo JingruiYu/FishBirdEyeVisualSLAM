@@ -19,6 +19,7 @@
 */
 
 #include "ORBmatcher.h"
+#include "Converter.h"
 
 #include<limits.h>
 
@@ -1595,6 +1596,163 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, KeyFrame *pKF, const set
         }
     }
 
+    return nmatches;
+}
+
+int ORBmatcher::BirdviewMatch(Frame &CurF, const std::vector<cv::KeyPoint> &vRefKeysBird, const cv::Mat &DescriptorsBird, const std::vector<MapPointBird*> &vRefMapPointsBird, vector<cv::DMatch> &vDMatches12, int isProject, int windowSize)
+{
+    int nmatches = 0;
+
+    vector<int> rotHist[HISTO_LENGTH];
+    for(int i=0;i<HISTO_LENGTH;i++)
+        rotHist[i].reserve(500);
+    const float factor = 1.0f/HISTO_LENGTH;
+
+    vector<int> vnMatches21(CurF.mvKeysBird.size(),-1);
+    vector<int> vnMatches12(vRefKeysBird.size(),-1);
+    vector<int> vMatchedDistance(vRefKeysBird.size(),INT_MAX);
+
+
+    cv::Mat Tbw;
+    if (isProject)
+    {
+        if (CurF.mTcw.empty())
+        {
+            cout << "CurF.mTcw.empty() is true. getchar" << endl;
+            isProject = false;
+            getchar();
+        }
+        else
+            Tbw = Frame::Tbc*CurF.mTcw;
+    }
+     
+    for (size_t i1 = 0; i1 < vRefKeysBird.size(); i1++)
+    {
+        cv::KeyPoint kp1 = vRefKeysBird[i1];
+        int level1 = kp1.octave;
+        
+        
+        MapPointBird* pMPBird = vRefMapPointsBird[i1];
+        
+        vector<size_t> vIndices2;
+        if (isProject)
+        {
+            if (!pMPBird)
+                continue;
+            
+            cv::Mat worldPos = pMPBird->GetWorldPos();
+            cv::Mat localPos = Tbw.rowRange(0,3).colRange(0,3)*worldPos+Tbw.rowRange(0,3).col(3);
+
+            if(fabs(localPos.at<float>(2))>0.2)
+                continue;
+            
+            cv::Point2f pt = Converter::BaseXY2BirdPixel(cv::Point3f(localPos.at<float>(0),localPos.at<float>(1),localPos.at<float>(2)));
+
+            if(pt.x<0||pt.x>=Frame::birdviewCols||pt.y<0||pt.y>=Frame::birdviewRows)
+                continue;
+
+            vIndices2 = CurF.GetFeaturesInAreaBirdview(pt.x, pt.y, windowSize);
+        }
+        else
+        {
+            if(level1>0)
+                continue;
+
+            vIndices2 = CurF.GetFeaturesInAreaBirdview(kp1.pt.x, kp1.pt.y, windowSize, level1, level1);
+        }
+        
+        if (vIndices2.empty())
+            continue;
+        
+        cv::Mat d1;
+        if (DescriptorsBird.empty() || (isProject && !pMPBird) )
+        {
+            d1 = pMPBird->GetDescriptor();
+        }
+        else
+            d1 = DescriptorsBird.row(i1);
+
+        int bestDist = INT_MAX;
+        int bestDist2 = INT_MAX;
+        int bestIdx = -1;
+ 
+        for (vector<size_t>::iterator vit=vIndices2.begin(); vit!=vIndices2.end(); vit++)
+        {
+            size_t i2 = *vit;
+
+            cv::Mat d2 = CurF.mDescriptorsBird.row(i2);
+
+            int dist = DescriptorDistance(d1,d2);
+
+            if (dist < bestDist)
+            {
+                bestDist2=bestDist;
+                bestDist=dist;
+                bestIdx=i2;
+            }
+            else if (dist < bestDist2)
+            {
+                bestDist2=dist;
+            }            
+        }
+        
+        if (bestDist<=TH_LOW)
+        {
+            if (bestDist<(float)bestDist2*mfNNratio)
+            {
+                vnMatches21[bestIdx]=i1;
+                vnMatches12[i1]=bestIdx;
+                vMatchedDistance[i1]=bestDist;
+                nmatches++;
+            }
+
+            if (mbCheckOrientation)
+            {
+                float rot = kp1.angle - CurF.mvKeysBird[bestIdx].angle;
+                if (rot<0.0)
+                    rot+=360.0f;
+                int bin = round(rot*factor);
+                if (bin == HISTO_LENGTH)
+                    bin = 0;
+                assert(bin>=0 && bin<HISTO_LENGTH);
+                rotHist[bin].push_back(i1);               
+            }
+        }
+    }
+
+    if (mbCheckOrientation)
+    {
+        int ind1=-1;
+        int ind2=-1;
+        int ind3=-1;
+
+        ComputeThreeMaxima(rotHist,HISTO_LENGTH,ind1,ind2,ind3);
+
+        for (int i = 0; i < HISTO_LENGTH; i++)
+        {
+            if (i==ind1 || i==ind2 || i==ind3)
+                continue;
+            
+            for (size_t j = 0; j < rotHist[i].size(); j++)
+            {
+                int idx1 = rotHist[i][j];
+                if (vnMatches12[idx1]>=0)
+                {
+                    vnMatches21[vnMatches12[idx1]]=-1;
+                    vnMatches12[idx1]=-1;
+                    nmatches--;
+                }
+                
+            }
+        }
+    }
+
+    for (size_t i = 0; i < vnMatches12.size(); i++)
+    {
+        if (vnMatches12[i] > 0)
+            vDMatches12.push_back(cv::DMatch(i,vnMatches12[i],vMatchedDistance[i]));
+    }
+    
     return nmatches;
 }
 

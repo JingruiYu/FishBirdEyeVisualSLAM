@@ -154,6 +154,15 @@ cv::Mat FrameDrawer::DrawBirdMask()
     return mBirdMask;
 }
 
+cv::Mat FrameDrawer::DrawBirdMatches()
+{
+    cv::Mat matchesImg;
+    cv::drawMatches(RefBirdIm,RefBirdKeys,mBirdIm,mvCurrentBirdKeys,
+            vDMatches12,matchesImg,cv::Scalar::all(-1),cv::Scalar::all(-1),std::vector<char>(),cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+    
+    return matchesImg;
+}
+
 void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
 {
     stringstream s;
@@ -205,6 +214,11 @@ void FrameDrawer::Update(Tracking *pTracker)
     pTracker->mCurrentFrame.mBirdviewImg.copyTo(mBirdIm);
     pTracker->mCurrentFrame.mBirdviewMask.copyTo(mBirdMask);
     mvCurrentBirdKeys = pTracker->mCurrentFrame.mvKeysBird;
+
+    pTracker->tmpRefFrame->mBirdviewImg.copyTo(RefBirdIm);
+    RefBirdKeys = pTracker->tmpRefFrame->mvKeysBird;
+    vDMatches12 = pTracker->vBirdDMatchs;
+
 
     if(pTracker->mLastProcessedState==Tracking::NOT_INITIALIZED)
     {

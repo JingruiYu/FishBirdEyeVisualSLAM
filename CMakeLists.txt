@@ -91,6 +91,7 @@ src/KeyFrameDatabase.cc
 src/Sim3Solver.cc
 src/Initializer.cc
 src/Viewer.cc
+src/MapPointBird.cc
 src/OdomG2oTypeSophus.cc
 src/OdomG2oTypeQuat.cc
 src/se3Types/Sophus/so3.cpp

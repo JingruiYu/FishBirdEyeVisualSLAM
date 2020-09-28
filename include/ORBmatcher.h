@@ -82,6 +82,9 @@ public:
     // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.
     int Fuse(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint);
 
+    int BirdviewMatch(Frame &CurF, const std::vector<cv::KeyPoint> &vRefKeysBird, const cv::Mat &DescriptorsBird, 
+                    const std::vector<MapPointBird*> &vRefMapPointsBird, vector<cv::DMatch> &vDMatches12, int isProject=0, int windowSize=10);
+
 public:
 
     static const int TH_LOW;

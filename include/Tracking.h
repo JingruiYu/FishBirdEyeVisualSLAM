@@ -125,6 +125,8 @@ public:
     Frame* tmpRefFrame;
     std::vector<Frame*> tmpvFrame;
 
+    std::vector<cv::DMatch> vBirdDMatchs;
+
 
     // Lists used to recover the full camera trajectory at the end of the execution.
     // Basically we store the reference keyframe for each frame and its relative transformation

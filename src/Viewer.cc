@@ -137,10 +137,12 @@ void Viewer::Run()
 
         cv::Mat im = mpFrameDrawer->DrawFrame();
         cv::Mat imBird = mpFrameDrawer->DrawBird();
-        cv::Mat imBirdMask = mpFrameDrawer->DrawBirdMask();
+        // cv::Mat imBirdMask = mpFrameDrawer->DrawBirdMask();
+        cv::Mat imBirdMatch = mpFrameDrawer->DrawBirdMatches();
         cv::imshow("ORB-SLAM2: Current Frame",im);
         cv::imshow("Bird_view",imBird);
-        cv::imshow("Bird_view_mask",imBirdMask);
+        // cv::imshow("Bird_view_mask",imBirdMask);
+        cv::imshow("Bird_view match",imBirdMatch);
         cv::waitKey(mT);
 
         if(menuReset)
