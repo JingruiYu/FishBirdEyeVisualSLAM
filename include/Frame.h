@@ -169,8 +169,9 @@ public:
 
     std::vector<cv::KeyPoint> mvKeysBird;
     std::vector<cv::Point3f> mvKeysBirdCamXYZ;
-    std::vector<cv::Point2f> mvKeysBirdBaseXY;
+    std::vector<cv::Point3f> mvKeysBirdBaseXY;
     std::vector<MapPointBird*> mvpMapPointsBird;
+    std::vector<bool> mvBirdOutlier;
     cv::Mat mDescriptorsBird;
 
     // Corresponding stereo coordinate and depth for each keypoint.
@@ -213,6 +214,7 @@ public:
 
     // Camera pose.
     cv::Mat mTcw;
+    cv::Mat testTbw;
 
     // Current and Next Frame id.
     static long unsigned int nNextId;

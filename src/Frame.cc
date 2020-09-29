@@ -53,14 +53,16 @@ Frame::Frame(const Frame &frame)
      mbf(frame.mbf), mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys),
      mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn), 
      mvKeysBird(frame.mvKeysBird), mvKeysBirdCamXYZ(frame.mvKeysBirdCamXYZ), mvKeysBirdBaseXY(frame.mvKeysBirdBaseXY), 
-     mvpMapPointsBird(frame.mvpMapPointsBird), mDescriptorsBird(frame.mDescriptorsBird), 
+     mvpMapPointsBird(frame.mvpMapPointsBird), mDescriptorsBird(frame.mDescriptorsBird), mvBirdOutlier(frame.mvBirdOutlier),
      mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), 
      mImg(frame.mImg), mBirdviewImg(frame.mBirdviewImg), mBirdviewMask(frame.mBirdviewMask),
      mBirdviewContour(frame.mBirdviewContour), mBirdviewContourICP(frame.mBirdviewContourICP),
      mOdomPose(frame.mOdomPose), mGtPose(frame.mGtPose),mbHaveOdom(frame.mbHaveOdom),
      mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec),
      mDescriptors(frame.mDescriptors.clone()), mDescriptorsRight(frame.mDescriptorsRight.clone()),
-     mvpMapPoints(frame.mvpMapPoints), mvbOutlier(frame.mvbOutlier), mnId(frame.mnId),
+     mvpMapPoints(frame.mvpMapPoints), mvbOutlier(frame.mvbOutlier), 
+     testTbw(frame.testTbw),
+     mnId(frame.mnId),
      mpReferenceKF(frame.mpReferenceKF), mnScaleLevels(frame.mnScaleLevels),
      mfScaleFactor(frame.mfScaleFactor), mfLogScaleFactor(frame.mfLogScaleFactor),
      mvScaleFactors(frame.mvScaleFactors), mvInvScaleFactors(frame.mvInvScaleFactors),
@@ -329,30 +331,31 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &bird
     extractorBird->detect(mBirdviewImg,mvKeysBird,mBirdviewMask);
     // extractorBird->detect(mBirdviewImg,mvKeysBird);
 
-    vector<cv::Point2f> vKeysBird(mvKeysBird.size());
-    for(int k=0;k<mvKeysBird.size();k++)
+    Nbird = mvKeysBird.size();
+
+    vector<cv::Point2f> vKeysBird(Nbird);
+    for(int k=0;k<Nbird;k++)
         vKeysBird[k] = mvKeysBird[k].pt;
     
     cv::TermCriteria criteria = cv::TermCriteria(cv::TermCriteria::EPS+cv::TermCriteria::MAX_ITER,40,0.001);
     cv::cornerSubPix(mBirdviewImg,vKeysBird,cv::Size(5,5),cv::Size(-1,-1),criteria);
-    for(int k=0;k<mvKeysBird.size();k++)
+    for(int k=0;k<Nbird;k++)
         mvKeysBird[k].pt = vKeysBird[k];
 
     extractorBird->compute(mBirdviewImg,mvKeysBird,mDescriptorsBird);
 
-    Nbird = mvKeysBird.size();
-    
-    mvpMapPointsBird = vector<MapPointBird*>(mvKeysBird.size(),static_cast<MapPointBird*>(NULL));  
+    mvpMapPointsBird = vector<MapPointBird*>(Nbird,static_cast<MapPointBird*>(NULL));  
+    mvBirdOutlier = vector<bool>(Nbird,true);
 
-    mvKeysBirdCamXYZ.resize(mvKeysBird.size());
-    mvKeysBirdBaseXY.resize(mvKeysBird.size());
-    for(int k=0;k<mvKeysBird.size();k++)
+    mvKeysBirdCamXYZ.resize(Nbird);
+    mvKeysBirdBaseXY.resize(Nbird);
+    for(int k=0;k<Nbird;k++)
     {
         cv::Point3f p3d = Converter::BirdPixel2BaseXY(mvKeysBird[k]);
         cv::Point2f p2d;
         p2d.x = p3d.x;
         p2d.y = p3d.y;
-        mvKeysBirdBaseXY[k] = p2d;
+        mvKeysBirdBaseXY[k] = p3d;
         mvKeysBirdCamXYZ[k] = Converter::BaseXY2CamXYZ(p3d);
     }
 
