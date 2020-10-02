@@ -58,6 +58,26 @@ Matrix3d EdgeSE3ProjectXYZ2XYZOnlyPoseQuat::skew(Vector3d phi)
 }
 
 
+void EdgeSE3ProjectBirdPoint2CamXYZ::linearizeOplus() 
+{
+	const g2o::VertexSE3Expmap *v = static_cast<const g2o::VertexSE3Expmap*>(_vertices[0]);
+	Vector3d p = v->estimate().map(Xw);
+
+	Matrix<double, 3, 6> jacobian_p_ksi;
+	jacobian_p_ksi << -skew(p), Matrix3d::Identity();
+
+	_jacobianOplusXi = -jacobian_p_ksi;
+}
+Matrix3d EdgeSE3ProjectBirdPoint2CamXYZ::skew(Vector3d phi)
+{
+	Matrix3d Phi;
+	Phi << 0, -phi[2], phi[1],
+		phi[2], 0, -phi[0],
+		-phi[1], phi[0], 0;
+	return Phi;
+}
+
+
 Matrix3d EdgePointTransformSE3Quat::skew(Vector3d phi)
 {
 	Matrix3d Phi;

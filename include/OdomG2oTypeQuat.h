@@ -1,5 +1,5 @@
-#ifndef ODOM_G2O_TYPE_H_
-#define ODOM_G2O_TYPE_H_
+#ifndef BIRD_G2O_TYPE_H_
+#define BIRD_G2O_TYPE_H_
 
 // #include "Frame.h"
 #include "Thirdparty/g2o/g2o/core/base_vertex.h"
@@ -75,6 +75,28 @@ public:
 	void computeError()
 	{
 		const VertexSE3Quat *v = static_cast<const VertexSE3Quat*>(_vertices[0]);
+		Vector3d p = v->estimate().map(Xw);
+		_error = Xc-p;
+	}
+
+	virtual void linearizeOplus();
+
+	Matrix3d skew(Vector3d phi);
+
+	Vector3d Xw,Xc;
+};
+
+class EdgeSE3ProjectBirdPoint2CamXYZ: public g2o::BaseUnaryEdge<3, Vector3d, g2o::VertexSE3Expmap>
+{
+public:
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+	EdgeSE3ProjectBirdPoint2CamXYZ(){}
+	bool read(std::istream& is){return false;}
+	bool write(std::ostream& os) const{return false;}
+
+	void computeError()
+	{
+		const g2o::VertexSE3Expmap *v = static_cast<const g2o::VertexSE3Expmap*>(_vertices[0]);
 		Vector3d p = v->estimate().map(Xw);
 		_error = Xc-p;
 	}
@@ -171,4 +193,4 @@ public:
 
 }  //namespace ORB_SLAM2
 
-#endif  //ODOM_G2O_TYPE_H_
+#endif  //BIRD_G2O_TYPE_H_

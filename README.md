@@ -20,3 +20,6 @@ Bird Match is done. the level and the inv Mat have some problem.
 
 v0.6:
 Using prior T for bird match.
+
+v0.7:
+Tcw Bird Optimized;
