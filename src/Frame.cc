@@ -931,7 +931,12 @@ void Frame::CalculateExtrinsics()
 {
     // from front camera to base footprint
     cv::Mat tbc = (cv::Mat_<float>(3,1)<<3.747, 0.040, 0.736);
-    float qx=0.631,qy=-0.623,qz=0.325,qw=-0.330;
+    double qx=0.631,qy=-0.623,qz=0.325,qw=-0.330; 
+    double qnorm = sqrt(qx*qx+qy*qy+qz*qz+qw*qw);
+    qx = qx / qnorm;
+    qy = qy / qnorm;
+    qz = qz / qnorm;
+    qw = qw / qnorm;   
     cv::Mat Rbc=(cv::Mat_<float>(3,3)<<1-2*(qy*qy+qz*qz),  2*(qx*qy-qw*qz),    2*(qx*qz+qw*qy),
                                                 2*(qx*qy+qw*qz),  1-2*(qx*qx+qz*qz),  2*(qy*qz-qw*qx),
                                                 2*(qx*qz-qw*qy),  2*(qy*qz+qw*qx),    1-2*(qx*qx+qy*qy));
@@ -940,8 +945,8 @@ void Frame::CalculateExtrinsics()
     tbc.copyTo(Tbc.rowRange(0,3).col(3));
 
     Tcb = cv::Mat::eye(4,4,CV_32F);
-    // cv::Mat Rcb = Rbc.t();
-    cv::Mat Rcb = Rbc.inv();
+    cv::Mat Rcb = Rbc.t();
+    // cv::Mat Rcb = Rbc.inv();
     cv::Mat tcb = -Rcb*tbc;
     Rcb.copyTo(Tcb.rowRange(0,3).colRange(0,3));
     tcb.copyTo(Tcb.rowRange(0,3).col(3));
@@ -949,6 +954,11 @@ void Frame::CalculateExtrinsics()
     cout<<"extrinsics: "<<endl;
     cout<<"Tbc = "<<endl<<Tbc<<endl;
     cout<<"Tcb = "<<endl<<Tcb<<endl;
+    cout << "Is I ? " << endl << Tbc*Tcb << endl;
+
+    // cv::Mat Tcb2 = Tbc.inv();
+    // cout<<"Tcb2 = "<<endl<<Tcb2<<endl;
+    // cout << "Is I ? " << endl << Tbc*Tcb2 << endl;
 }
 
 cv::Mat Frame::GetTransformFromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2)

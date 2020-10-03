@@ -341,7 +341,7 @@ void Tracking::TrackB()
         tmpTwb = cv::Mat::eye(4,4,CV_32F);
         tmpTwc = cv::Mat::eye(4,4,CV_32F);
         
-        mCurrentFrame.testTbw = tmpTwb.clone();
+        mCurrentFrame.testTbw = Converter::invT(tmpTwb.clone());
         mCurrentFrame.SetPose(Converter::invT(tmpTwc));
         
         mCurrentFrame.mvBirdOutlier = vector<bool>(mCurrentFrame.Nbird,false);
@@ -363,7 +363,7 @@ void Tracking::TrackB()
         cv::Mat T_from_ci2_to_ci1 = Frame::GetTransformFromOdometer(tmpRefFrame->mGtPose,mCurrentFrame.mGtPose);       
         tmpTwc = tmpTwc * T_from_ci2_to_ci1;
 
-        mCurrentFrame.testTbw = tmpTwb.clone();
+        mCurrentFrame.testTbw = Converter::invT(tmpTwb);
         mCurrentFrame.SetPose(Converter::invT(tmpTwc));
 
         ORBmatcher BirdMatcher(0.9,true);
@@ -378,11 +378,17 @@ void Tracking::TrackB()
 
         if (vDMatches12.size() > 10)
         {
-            int optedMatches = Optimizer::BirdOptimization(&mCurrentFrame);
+            cout << "Tcw before optimization: " << endl << mCurrentFrame.mTcw << endl;
+
+            CheckOptim(&mCurrentFrame);
+
+            int optedMatches = Optimizer::BirdOptimization(&mCurrentFrame,1.0);
             cout << "After optimization, matches : " << optedMatches << endl;
+
+            cout << "Tcw after optimization: " << endl << mCurrentFrame.mTcw << endl;
         }
         
-        GenerateBirdPoints();
+        // GenerateBirdPoints();
 
         mpFrameDrawer->Update(this);
 
@@ -390,7 +396,8 @@ void Tracking::TrackB()
         tmpvFrame.push_back(tmpRefFrame);   
     }
 
-    cv::Mat Twb_c = Frame::Tbc * tmpTwc;
+    // cv::Mat Twb_c = Frame::Tbc * tmpTwc;
+    cv::Mat Twb_c = Frame::Tbc * Converter::invT(mCurrentFrame.mTcw);
     DrawTwb_cPose(Twb_c,0,150,0,"GTwb_c");
     DrawTwbPose(tmpTwb,0,150,0,"GTwb");
     DrawGT(0,0,150,"GroundTruth");
@@ -1475,17 +1482,27 @@ void Tracking::FilterBirdOutlier(Frame* MatchedFrame1, Frame* MatchedFrame2, vec
 {
     vector<cv::KeyPoint> vBirdKey1 = MatchedFrame1->mvKeysBird;
     vector<cv::Point3f> vBirdBaseXYPt1 = MatchedFrame1->mvKeysBirdBaseXY;
+    vector<cv::Point3f> vBirdCamXYPt1 = MatchedFrame1->mvKeysBirdCamXYZ;
     cv::Mat Tbw1 = MatchedFrame1->testTbw;
     cv::Mat Twb1 = Converter::invT(Tbw1);
+    cv::Mat Tcw1 = MatchedFrame1->mTcw; // Frame::Tcb * Tbw1 * Frame::Tbc; // MatchedFrame1->mTcw;
+    cv::Mat Twc1 = Converter::invT(Tcw1); // Frame::Tcb * Twb1 * Frame::Tbc; // Converter::invT(Tcw1);
 
     vector<cv::KeyPoint> vBirdKey2 = MatchedFrame2->mvKeysBird;
     vector<cv::Point3f> vBirdBaseXYPt2 = MatchedFrame2->mvKeysBirdBaseXY;
+    vector<cv::Point3f> vBirdCamXYPt2 = MatchedFrame2->mvKeysBirdCamXYZ;
     cv::Mat Tbw2 = MatchedFrame2->testTbw;
-
+    cv::Mat Twb2 = Converter::invT(Tbw2);
+    cv::Mat Tcw2 = MatchedFrame2->mTcw; // Frame::Tcb * Tbw2 * Frame::Tbc; // MatchedFrame2->mTcw;
+    cv::Mat Twc2 = Converter::invT(Tcw2); // Frame::Tcb * Twb2 * Frame::Tbc;// Converter::invT(Tcw2);
+    
     int inlier = 0;
     int buildMP = 0;
     double minDis = INT_MAX;
     double maxDis = INT_MIN;
+
+    double minDisC = INT_MAX;
+    double maxDisC = INT_MIN;
     for (size_t i = 0; i < vDMatches12.size(); i++)
     {
         cv::DMatch iMatch = vDMatches12[i];
@@ -1497,6 +1514,15 @@ void Tracking::FilterBirdOutlier(Frame* MatchedFrame1, Frame* MatchedFrame2, vec
 
         double dis = cv::norm(ptc2-pt2,NORM_L2);
 
+
+        cv::Mat pt1c(vBirdCamXYPt1[iMatch.queryIdx]);
+        cv::Mat pt2c(vBirdCamXYPt2[iMatch.trainIdx]);
+
+        cv::Mat ptwC = Twc1.rowRange(0,3).colRange(0,3) * pt1c + Twc1.rowRange(0,3).col(3);
+        cv::Mat ptc2c = Tcw2.rowRange(0,3).colRange(0,3) * ptwC + Tcw2.rowRange(0,3).col(3);
+
+        double disC = cv::norm(ptc2c-pt2c,NORM_L2);
+
         if (dis < minDis)
         {
             minDis = dis;
@@ -1505,27 +1531,100 @@ void Tracking::FilterBirdOutlier(Frame* MatchedFrame1, Frame* MatchedFrame2, vec
         {
             maxDis = dis;
         }
+
+        if (disC < minDisC)
+        {
+            minDisC = disC;
+        }
+        if (disC > maxDisC)
+        {
+            maxDisC = disC;
+        }
         
-        if (dis < windowSize)
+        if (disC < windowSize)
         {
             MatchedFrame2->mvBirdOutlier[iMatch.trainIdx] = false;
             inlier++;            
             
-            MapPointBird * pMP = MatchedFrame1->mvpMapPointsBird[iMatch.queryIdx];
-            if (pMP)
-            {
-                MatchedFrame2->mvpMapPointsBird[iMatch.trainIdx] = pMP;
-                buildMP++;
-            }
+            // MapPointBird * pMP = MatchedFrame1->mvpMapPointsBird[iMatch.queryIdx];
+            // if (pMP)
+            // {
+            //     MatchedFrame2->mvpMapPointsBird[iMatch.trainIdx] = pMP;
+            //     buildMP++;
+            // }
             
+            // cv::Mat pc(MatchedFrame2->mvKeysBirdCamXYZ[iMatch.trainIdx]);
+            // cv::Mat pw = Twc2.rowRange(0,3).colRange(0,3) * pc + Twc2.rowRange(0,3).col(3);
             
+            // cv::Mat pc(MatchedFrame1->mvKeysBirdCamXYZ[iMatch.queryIdx]);
+            // cv::Mat pw = Twc1.rowRange(0,3).colRange(0,3) * pc + Twc1.rowRange(0,3).col(3);
+            
+            MapPointBird *pMPBird = new MapPointBird(ptwC,MatchedFrame2,mpMap,iMatch.trainIdx);
+            MatchedFrame2->mvpMapPointsBird[iMatch.trainIdx] = pMPBird;
         }
     }
     cout << "minDis: " << minDis << endl;
     cout << "maxDis: " << maxDis << endl;
+    cout << "minDisC: " << minDisC << endl;
+    cout << "maxDisC: " << maxDisC << endl;
     cout << "inlier: " << inlier << endl;
     cout << "buildMP: " << buildMP << endl;
 
+    if (minDisC > 1 || minDis > 1)
+    {
+        
+        cv::Mat oTcw1 = MatchedFrame1->mTcw; // Frame::Tcb * Tbw1 * Frame::Tbc; // MatchedFrame1->mTcw;
+        cv::Mat oTcw11 = Frame::Tcb * Tbw1 * Frame::Tbc;
+        cout << "Tcc-Tcw1" << endl << oTcw1 << endl;
+        cout << "Tcc-Tcw11" << endl << oTcw11 << endl;
+
+        cv::Mat oTwc1 = Converter::invT(oTcw1); // Frame::Tcb * Twb1 * Frame::Tbc; // Converter::invT(Tcw1);
+        cv::Mat oTwc11 = Frame::Tcb * Twb1 * Frame::Tbc;
+        cout << "Tcc-Twc1" << endl << oTwc1 << endl;
+        cout << "Tcc-Twc11" << endl << oTwc11 << endl;
+
+        cv::Mat oTcw2 = MatchedFrame2->mTcw;//Frame::Tcb * Tbw2 * Frame::Tbc; // MatchedFrame2->mTcw;
+        cv::Mat oTcw22 = Frame::Tcb * Tbw2 * Frame::Tbc;
+        cout << "Tcc-Tcw2" << endl << oTcw2 << endl;
+        cout << "Tcc-Tcw22" << endl << oTcw22 << endl;
+
+        cv::Mat oTwc2 = Converter::invT(oTcw2);//Frame::Tcb * Twb2 * Frame::Tbc;// Converter::invT(Tcw2);
+        cv::Mat oTwc22 = Frame::Tcb * Twb2 * Frame::Tbc;
+        cout << "Tcc-Twc2" << endl << oTwc2 << endl;
+        cout << "Tcc-Twc22" << endl << oTwc22 << endl;
+
+        // getchar();
+    }
+    
+
+}
+
+void Tracking::CheckOptim(Frame* pFrame)
+{
+    double error = 0;
+    cv::Mat Rcw = pFrame->mTcw.rowRange(0,3).colRange(0,3);
+    cv::Mat tcw = pFrame->mTcw.rowRange(0,3).col(3);
+    
+    for (size_t i = 0; i < pFrame->mvpMapPointsBird.size(); i++)
+    {
+        MapPointBird * pMP = pFrame->mvpMapPointsBird[i];
+        if (pMP)
+        {
+            cv::Mat Xw = pMP->GetWorldPos();
+            cv::Mat Xc(pFrame->mvKeysBirdCamXYZ[i]);
+
+            cv::Mat Xrc = Rcw * Xw + tcw;
+
+            double subError = cv::norm(Xrc-Xc,NORM_L2);
+            error = subError + error;
+
+            cout << "Xw: " << Xw.t() << endl;
+            cout << "Xc: " << Xc.t() << endl;
+            cout << "Xrc: " << Xrc.t() << endl;
+            cout << "subError: " << subError << endl;
+        } 
+    }  
+    cout << "error: " << error << endl;
 }
 
 void Tracking::SearchLocalPoints()

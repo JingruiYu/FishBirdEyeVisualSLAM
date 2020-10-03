@@ -466,7 +466,7 @@ int Optimizer::BirdOptimization(Frame *pFrame, float wB)
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
     optimizer.setAlgorithm(solver);
 
-    int nInitialCorrespondences=0;
+    int nInitialBirdCorrespondences=0;
 
     // Set Frame vertex
     g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
@@ -514,13 +514,15 @@ int Optimizer::BirdOptimization(Frame *pFrame, float wB)
             optimizer.addEdge(e);
             vpEdgesBird.push_back(e);
             vnIndexEdgeBird.push_back(iB);
+            nInitialBirdCorrespondences++;
         }
     }
     
     }
 
+    cout << "In optimization, nInitialBirdCorrespondences: " << nInitialBirdCorrespondences << endl;
 
-    if(nInitialCorrespondences<3)
+    if(nInitialBirdCorrespondences<3)
         return 0;
 
     // We perform 4 optimizations, after each optimization we classify observation as inlier/outlier
@@ -548,7 +550,7 @@ int Optimizer::BirdOptimization(Frame *pFrame, float wB)
                 e->computeError();
             
             const float chi2 = e->chi2();
-            float chi2Bad = chi2Bird[it];
+            float chi2Bad = chi2Bird[it] * (wB+1e-9);
             if (chi2 > chi2Bad)
             {
                 pFrame->mvBirdOutlier[idx] = true;
@@ -576,7 +578,7 @@ int Optimizer::BirdOptimization(Frame *pFrame, float wB)
     cv::Mat pose = Converter::toCvMat(SE3quat_recov);
     pFrame->SetPose(pose);
 
-    return nInitialCorrespondences-nBadBird;
+    return nInitialBirdCorrespondences-nBadBird;
 }
 
 
