@@ -144,7 +144,7 @@ cv::Mat FrameDrawer::DrawBird()
         cv::circle(imForDraw,mvCurrentBirdKeys[i].pt,2,cv::Scalar(0,255,0),-1);
     }
 
-    cout << "mvCurrentBirdKeys.size() : " << mvCurrentBirdKeys.size() << endl;
+    // cout << "mvCurrentBirdKeys.size() : " << mvCurrentBirdKeys.size() << endl;
     
     return imForDraw;
 }

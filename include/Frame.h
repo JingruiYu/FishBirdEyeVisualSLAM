@@ -117,6 +117,8 @@ public:
 
     cv::Mat GetGTPoseTwb();
 
+    int GetBirdMapPointsNum();
+
 public:
     // Vocabulary used for relocalization.
     ORBVocabulary* mpORBvocabulary;

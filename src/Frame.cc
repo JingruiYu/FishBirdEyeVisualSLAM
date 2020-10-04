@@ -993,4 +993,17 @@ cv::Mat Frame::GetGTPoseTwb()
     return Twb.clone();
 }
 
+int Frame::GetBirdMapPointsNum()
+{
+    int sum = 0;
+    for (size_t i = 0; i < mvpMapPointsBird.size(); i++)
+    {
+        MapPointBird * pMP = mvpMapPointsBird[i];
+        if (pMP)
+            sum++;        
+    }
+
+    return sum;
+}
+
 } //namespace ORB_SLAM

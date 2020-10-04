@@ -162,13 +162,15 @@ int main(int argc, char **argv)
 #else
         std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
 #endif
-
-        // if (ni % 10 == 0)          
-            cout << endl << "it is frame ..................... " << ni << endl;
+   
+        cout << endl << "it is frame ..................... " << ni << endl;
             
         // Pass the image to the SLAM system
         //SLAM.TrackMonocular(im,tframe);
         SLAM.TrackMonocularWithOdom(im,birdview,birdviewmask,birdviewContour,birdviewContourICP,gtPose,odomPose,tframe);
+
+        if (ni % 200 == 0)  
+            getchar();
 
 #ifdef COMPILEDWITHC11
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();

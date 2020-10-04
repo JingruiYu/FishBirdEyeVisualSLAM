@@ -578,6 +578,8 @@ int Optimizer::BirdOptimization(Frame *pFrame, float wB)
     cv::Mat pose = Converter::toCvMat(SE3quat_recov);
     pFrame->SetPose(pose);
 
+    cout << "In optimization, nBadBird: " << nBadBird << endl;
+
     return nInitialBirdCorrespondences-nBadBird;
 }
 

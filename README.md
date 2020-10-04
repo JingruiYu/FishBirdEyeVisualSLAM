@@ -23,4 +23,5 @@ Using prior Tbw for bird match.
 Using prior Tcw for bird match. 
 
 v0.7:
-Tcw Bird Optimized;
+Tcw Bird Optimized; with Filter of Prior.  
+less than 0.1;

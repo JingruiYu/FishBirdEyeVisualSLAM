@@ -291,6 +291,14 @@ cv::Point3f Converter::BirdPixel2BaseXY(const cv::KeyPoint &kp)
     return p;
 }
 
+cv::Point2f Converter::BaseXY2BirdPixel(const cv::Point3f &p)
+{
+    cv::Point2f pt;
+    pt.x = Frame::birdviewCols/2-p.y*Frame::meter2pixel;
+    pt.y = Frame::birdviewRows/2-(p.x-Frame::rear_axle_to_center)*Frame::meter2pixel;
+    return pt;
+}
+
 cv::Point3f Converter::BaseXY2CamXYZ(cv::Point3f p)
 {
     cv::Mat p_src(p);
