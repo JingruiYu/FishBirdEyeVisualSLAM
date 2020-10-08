@@ -84,6 +84,8 @@ public:
 
     int BirdviewMatch(Frame &CurF, const std::vector<cv::KeyPoint> &vRefKeysBird, const cv::Mat &DescriptorsBird, 
                     const std::vector<MapPointBird*> &vRefMapPointsBird, vector<cv::DMatch> &vDMatches12, int isProject=0, int windowSize=10);
+    
+    int BirdMapPointMatch(Frame &CurF, const std::vector<MapPointBird*> &vRefMapPointsBird, int windowSize = 10, float filterSize = 0.05);
 
 public:
 

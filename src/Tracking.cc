@@ -372,16 +372,20 @@ void Tracking::TrackB()
 
         ORBmatcher BirdMatcher(0.9,true);
         vector<cv::DMatch> vDMatches12;
-        int nmatches = BirdMatcher.BirdviewMatch(mCurrentFrame,tmpRefFrame->mvKeysBird,tmpRefFrame->mDescriptorsBird,tmpRefFrame->mvpMapPointsBird,vDMatches12,0,10);
-        // cout << "nmatches:- " << nmatches << " - vDMatches12.size() : - " << vDMatches12.size() << endl;
-
-        FilterBirdOutlier(tmpRefFrame, &mCurrentFrame, vDMatches12, 0.075);
-
+        int nmatches;
+        if (false)
+        {
+            nmatches = BirdMatcher.BirdviewMatch(mCurrentFrame,tmpRefFrame->mvKeysBird,tmpRefFrame->mDescriptorsBird,tmpRefFrame->mvpMapPointsBird,vDMatches12,0,10);
+            // cout << "nmatches:- " << nmatches << " - vDMatches12.size() : - " << vDMatches12.size() << endl;
+            FilterBirdOutlier(tmpRefFrame, &mCurrentFrame, vDMatches12, 0.05);
+        }
+        else
+        {
+            nmatches = BirdMatcher.BirdMapPointMatch(mCurrentFrame, tmpRefFrame->mvpMapPointsBird, 10, 0.05);
+        }
+        
         int numPt = mCurrentFrame.GetBirdMapPointsNum();
         cout << "the num of MPs -2-: " << numPt << endl;
-
-        vBirdDMatchs.assign(vDMatches12.begin(),vDMatches12.end());
-        cout << "vDMatches12:- " << vDMatches12.size() << " - vBirdDMatchs.size() : - " << vBirdDMatchs.size() << endl;
 
         if (numPt > 10)
         {
@@ -402,12 +406,17 @@ void Tracking::TrackB()
         else
         {
             cout << "\033[32m" << "not enough matches for optimization" << "\033[0m" << endl;
-            mCurrentFrame.SetPose(Converter::invT(tmpTwc));
+            // mCurrentFrame.SetPose(Converter::invT(tmpTwc));
 
             outlierCnt++;
         }
         
-        // GenerateBirdPoints();
+        nmatches = BirdMatcher.BirdviewMatch(mCurrentFrame,tmpRefFrame->mvKeysBird,tmpRefFrame->mDescriptorsBird,tmpRefFrame->mvpMapPointsBird,vDMatches12,0,10);
+        
+        FilterBirdOutlier(tmpRefFrame, &mCurrentFrame, vDMatches12, 0.05);
+
+        vBirdDMatchs.assign(vDMatches12.begin(),vDMatches12.end());
+        cout << "vDMatches12:- " << vDMatches12.size() << " - vBirdDMatchs.size() : - " << vBirdDMatchs.size() << endl;
 
         mpFrameDrawer->Update(this);
 
@@ -1525,6 +1534,7 @@ void Tracking::FilterBirdOutlier(Frame* MatchedFrame1, Frame* MatchedFrame2, vec
     
     int inlier = 0;
     int buildMP = 0;
+    int inConsistent = 0;
 
     double minDis = INT_MAX;
     double maxDis = INT_MIN;
@@ -1537,8 +1547,13 @@ void Tracking::FilterBirdOutlier(Frame* MatchedFrame1, Frame* MatchedFrame2, vec
     
 
     for (size_t i = 0; i < vDMatches12.size(); i++)
-    {
+    {        
         cv::DMatch iMatch = vDMatches12[i];
+
+        MapPointBird * tmpMP = MatchedFrame2->mvpMapPointsBird[iMatch.trainIdx];
+        if(tmpMP)
+            continue;
+            
         cv::Mat pt1(vBirdBaseXYPt1[iMatch.queryIdx]);
         cv::Mat pt2(vBirdBaseXYPt2[iMatch.trainIdx]);
 
@@ -1582,10 +1597,21 @@ void Tracking::FilterBirdOutlier(Frame* MatchedFrame1, Frame* MatchedFrame2, vec
         {
             MatchedFrame2->mvBirdOutlier[iMatch.trainIdx] = false;
             inlier++;            
-                       
-            MapPointBird *pMPBird = new MapPointBird(ptwC,MatchedFrame2,mpMap,iMatch.trainIdx);
-            MatchedFrame2->mvpMapPointsBird[iMatch.trainIdx] = pMPBird;
-            buildMP++;
+
+            MapPointBird *refMPBird = MatchedFrame1->mvpMapPointsBird[iMatch.queryIdx];
+            if (refMPBird && cv::norm(refMPBird->GetWorldPos()-ptwC,NORM_L2) < 0.05)
+            {
+                MatchedFrame2->mvpMapPointsBird[iMatch.trainIdx] = refMPBird;
+                buildMP++;
+                inConsistent++;
+            }
+            else
+            {
+                MapPointBird *pMPBird = new MapPointBird(ptwC,MatchedFrame2,mpMap,iMatch.trainIdx);
+                MatchedFrame2->mvpMapPointsBird[iMatch.trainIdx] = pMPBird;
+                
+                buildMP++;
+            }
         }
     }
 
@@ -1599,6 +1625,7 @@ void Tracking::FilterBirdOutlier(Frame* MatchedFrame1, Frame* MatchedFrame2, vec
     cout << "vDMatches12.size(): " << vDMatches12.size() << endl;
     cout << "inlier: " << inlier << endl;
     cout << "buildMP: " << buildMP << endl;
+    cout << "inConsistent: " << inConsistent << endl;
     
 
     if (minDisC > 1 || minDis > 1 || minDisBC > 1)

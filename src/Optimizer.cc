@@ -520,7 +520,7 @@ int Optimizer::BirdOptimization(Frame *pFrame, float wB)
     
     }
 
-    cout << "In optimization, nInitialBirdCorrespondences: " << nInitialBirdCorrespondences << endl;
+    cout << "\033[35m" << "In optimization, nInitialBirdCorrespondences: " << nInitialBirdCorrespondences << "\033[0m" << endl;
 
     if(nInitialBirdCorrespondences<3)
         return 0;

@@ -254,6 +254,9 @@ protected:
     bool mbRGB;
 
     list<MapPoint*> mlpTemporalPoints;
+
+    int outlierCnt;
+    int inlierCnt;
 };
 
 } //namespace ORB_SLAM
