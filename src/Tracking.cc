@@ -351,8 +351,10 @@ void Tracking::TrackB()
         tmpRefFrame = new Frame(mCurrentFrame);
 
         tmpvFrame.push_back(tmpRefFrame);
+        localFrame.push_front(tmpRefFrame);
 
         GenerateBirdPoints();
+        UpdateBirdLocalMap();
 
         mpFrameDrawer->Update(this);
 
@@ -381,7 +383,10 @@ void Tracking::TrackB()
         }
         else
         {
-            nmatches = BirdMatcher.BirdMapPointMatch(mCurrentFrame, tmpRefFrame->mvpMapPointsBird, 10, 0.05);
+            if (localMapPointBirds.size() > 10)
+                nmatches = BirdMatcher.BirdMapPointMatch(mCurrentFrame, localMapPointBirds, 10, 0.05);
+            else
+                nmatches = BirdMatcher.BirdMapPointMatch(mCurrentFrame, tmpRefFrame->mvpMapPointsBird, 10, 0.05);
         }
         
         int numPt = mCurrentFrame.GetBirdMapPointsNum();
@@ -422,6 +427,9 @@ void Tracking::TrackB()
 
         tmpRefFrame = new Frame(mCurrentFrame);
         tmpvFrame.push_back(tmpRefFrame);   
+        localFrame.push_front(tmpRefFrame);
+
+        UpdateBirdLocalMap();
     }
 
     cv::Mat Twb_c2 = Frame::Tbc * tmpTwc;
@@ -2287,5 +2295,83 @@ cv::Mat Tracking::GetPriorMotion()
     return deltaTcw.clone();
 }
 
+void Tracking::UpdateBirdLocalMap()
+{
+    cv::Mat nowTw = Converter::invT(mCurrentFrame.mTcw).rowRange(0,3).col(3);
+    
+    // cout << "localFrame.size() before: " << localFrame.size() << endl;
+    // for (auto ite = localFrame.begin(), lend = localFrame.end(); ite != lend; ite++)
+    // {
+    //     Frame* tmF = *ite;
+    //     cout << "id: " << tmF->mnId << endl;
+    // }
+
+    int allMapPtBirds = 0;
+    set<MapPointBird*> setlocalMapPointBirds;
+    for (auto itF = localFrame.begin(), lend = localFrame.end(); itF != lend; )
+    {
+        Frame* tmF = *itF;
+        cv::Mat refTw = Converter::invT(tmF->mTcw).rowRange(0,3).col(3);
+        double dis = cv::norm(refTw-nowTw,NORM_L2);
+        // cout << "refTw: " << refTw.t() << " nowTw: " << nowTw.t() << " norm: " << dis << endl;
+        
+        if (cv::norm(refTw-nowTw,NORM_L2) > 5)
+        {
+            // auto delF = itF;
+            // itF++;
+            // localFrame.erase(delF);
+            localFrame.erase(itF++);
+        }
+        else
+        {
+            std::vector<MapPointBird*> submvMPBirds = tmF->mvpMapPointsBird;
+            int impMp = 0;
+            for (size_t i = 0; i < submvMPBirds.size(); i++)
+            {
+                MapPointBird* pMPBird = submvMPBirds[i];
+                if (!pMPBird)
+                    continue;
+                
+                if (!setlocalMapPointBirds.count(pMPBird))
+                {
+                    setlocalMapPointBirds.insert(pMPBird);
+                    impMp++;
+                }
+                    
+                allMapPtBirds++;
+            }
+            
+            if (impMp < 10)
+                localFrame.erase(itF++);
+            else
+                itF++;
+        }        
+    }
+
+    cout << "localFrame.size() after : " << localFrame.size() << endl;
+    // for (auto ite = localFrame.begin(), lend = localFrame.end(); ite != lend; ite++)
+    // {
+    //     Frame* tmF = *ite;
+    //     cout << "id: " << tmF->mnId << endl;
+    // }
+
+    localMapPointBirds.clear();
+    for (auto itMPB = setlocalMapPointBirds.begin(), lend = setlocalMapPointBirds.end(); itMPB != lend; itMPB++)
+    {
+        MapPointBird* pMPBird = *itMPB;
+
+        if (!pMPBird)
+        {
+            cout << "pMPBird is NULL" << endl;
+            getchar();
+        }
+
+        localMapPointBirds.push_back(pMPBird);
+    }
+
+    // cout << "allMapPtBirds: " << allMapPtBirds << endl;
+    // cout << "setlocalMapPointBirds.size(): " << setlocalMapPointBirds.size() << endl;
+    // cout << "localMapPointBirds.size(): " << localMapPointBirds.size() << endl;
+}
 
 } //namespace ORB_SLAM

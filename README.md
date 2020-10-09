@@ -28,3 +28,6 @@ less than 0.1;
 
 v0.8:
 Using bird map points for matching, and generate more map point by keypoints match.
+
+v0.9:
+Local Map for Bird were build, which are used for search match and improve the inliers.

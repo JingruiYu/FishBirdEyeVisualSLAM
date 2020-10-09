@@ -52,9 +52,7 @@ void MapPointBird::EraseObservation(KeyFrame* pKF)
 
 map<KeyFrame*, size_t> MapPointBird::GetObservations()
 {
-    // cout<<"Get MapPoint Bird Observations..."<<endl;
     unique_lock<mutex> lock(mMutexFeatures);
-    // cout<<"Get MapPoint Bird Observations Successful."<<endl;
     return mObservations;
 }
 

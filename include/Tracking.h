@@ -135,6 +135,9 @@ public:
     list<double> mlFrameTimes;
     list<bool> mlbLost;
 
+    list<Frame*> localFrame;
+    std::vector<MapPointBird*> localMapPointBirds;
+
     // True if local mapping is deactivated and we are performing only localization
     bool mbOnlyTracking;
     bool IsReInit;
@@ -145,6 +148,7 @@ public:
     void Reset();
 
     cv::Mat GetPriorMotion();
+    void UpdateBirdLocalMap();
 
 protected:
 
