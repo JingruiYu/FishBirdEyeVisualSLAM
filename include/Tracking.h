@@ -183,7 +183,9 @@ protected:
     void CreateNewKeyFrame();
 
     void GenerateBirdPoints();
+    void CreateBirdPoints(KeyFrame* pKF);
     void FilterBirdOutlier(Frame* MatchedFrame1, Frame* MatchedFrame2, vector<cv::DMatch> &vDMatches12, float windowSize);
+    void FilterBirdOutlierInFront(Frame* MatchedFrame1, Frame* MatchedFrame2, vector<cv::DMatch> &vDMatches12, float windowSize);
     void CheckOptim(Frame* pFrame);
     // In case of performing only localization, this flag is true when there are no matches to
     // points in the map. Still tracking will continue if there are enough matches with temporal points.
@@ -261,6 +263,7 @@ protected:
 
     int outlierCnt;
     int inlierCnt;
+    int lessMatch;
 };
 
 } //namespace ORB_SLAM
