@@ -583,6 +583,34 @@ void System::SaveKeyFrameTrajectoryOdomTUM(const string &filename)
     cout << endl << "trajectory saved!" << endl;
 }
 
+void System::SaveKeyFrameIdx(const string &filename)
+{
+    vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
+    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
+
+    ofstream f;
+    f.open(filename.c_str());
+    if(!f)
+    {
+        cout<<"can't open file "<<filename<<endl;
+    }
+    if(!f)
+    {
+        cout<<"can't open file "<<filename<<endl;
+    }
+    f << fixed;
+
+    for(size_t i=0; i<vpKFs.size(); i++)
+    {
+        KeyFrame* pKF = vpKFs[i];
+
+        f << setprecision(6) << pKF->mnFrameId << endl;
+    }
+
+    f.close();
+    cout << endl << "KeyFrameIdx saved!" << endl;
+}
+
 int System::GetTrackingState()
 {
     unique_lock<mutex> lock(mMutexState);

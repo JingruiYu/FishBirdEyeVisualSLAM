@@ -36,6 +36,8 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
     fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy),
     mbf(F.mbf), mb(F.mb), mThDepth(F.mThDepth), N(F.N), mvKeys(F.mvKeys), mvKeysUn(F.mvKeysUn),
     mvuRight(F.mvuRight), mvDepth(F.mvDepth), mDescriptors(F.mDescriptors.clone()),
+    mvKeysBird(F.mvKeysBird), mvKeysBirdCamXYZ(F.mvKeysBirdCamXYZ), mvKeysBirdBaseXY(F.mvKeysBirdBaseXY),
+    mvpMapPointsBird(F.mvpMapPointsBird), mvBirdOutlier(F.mvBirdOutlier), mDescriptorsBird(F.mDescriptorsBird.clone()),
     mBowVec(F.mBowVec), mFeatVec(F.mFeatVec), mnScaleLevels(F.mnScaleLevels), mfScaleFactor(F.mfScaleFactor),
     mfLogScaleFactor(F.mfLogScaleFactor), mvScaleFactors(F.mvScaleFactors), mvLevelSigma2(F.mvLevelSigma2),
     mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX),
@@ -53,6 +55,21 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
         for(int j=0; j<mnGridRows; j++)
             mGrid[i][j] = F.mGrid[i][j];
     }
+    
+    int addPtBNum = 0;
+    for (size_t i = 0; i < mvpMapPointsBird.size(); i++)
+    {
+        MapPointBird* pMPB = mvpMapPointsBird[i];
+        if (pMPB)
+        {
+            pMPB->AddObservation(this,i);
+            pMPB->ComputeDistinctiveDescriptors();
+            addPtBNum++;
+            mpMap->AddMapPointBird(pMPB);
+        }
+    }
+    cout << "\033[36m" << "addPtBNum: " << addPtBNum << "\033[0m" << endl;
+    
 
     SetPose(F.mTcw);    
 }
@@ -212,6 +229,12 @@ void KeyFrame::AddMapPoint(MapPoint *pMP, const size_t &idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     mvpMapPoints[idx]=pMP;
+}
+
+void KeyFrame::AddMapPointBird(MapPointBird *pMPB, const size_t &idx)
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    mvpMapPointsBird[idx]=pMPB;
 }
 
 void KeyFrame::EraseMapPointMatch(const size_t &idx)

@@ -150,6 +150,8 @@ public:
     cv::Mat GetPriorMotion();
     void UpdateBirdLocalMap();
 
+    void GetPerFrameMatchedBirdPoints();
+
 protected:
 
     // Main tracking function. It is independent of the input sensor.

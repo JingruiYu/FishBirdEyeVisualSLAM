@@ -43,6 +43,12 @@ void Map::AddMapPoint(MapPoint *pMP)
     mspMapPoints.insert(pMP);
 }
 
+void Map::AddMapPointBird(MapPointBird* pMPB)
+{
+    unique_lock<mutex> lock(mMutexMap);
+    mspMapPointsBird.insert(pMPB);
+}
+
 void Map::EraseMapPoint(MapPoint *pMP)
 {
     unique_lock<mutex> lock(mMutexMap);
@@ -89,6 +95,12 @@ vector<MapPoint*> Map::GetAllMapPoints()
 {
     unique_lock<mutex> lock(mMutexMap);
     return vector<MapPoint*>(mspMapPoints.begin(),mspMapPoints.end());
+}
+
+vector<MapPointBird*> Map::GetAllMapPointsBird()
+{
+    unique_lock<mutex> lock(mMutexMap);
+    return vector<MapPointBird*>(mspMapPointsBird.begin(),mspMapPointsBird.end());
 }
 
 long unsigned int Map::MapPointsInMap()

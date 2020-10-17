@@ -22,6 +22,7 @@
 #define MAP_H
 
 #include "MapPoint.h"
+#include "MapPointBird.h"
 #include "KeyFrame.h"
 #include <set>
 
@@ -33,6 +34,7 @@ namespace ORB_SLAM2
 {
 
 class MapPoint;
+class MapPointBird;
 class KeyFrame;
 
 class Map
@@ -42,6 +44,7 @@ public:
 
     void AddKeyFrame(KeyFrame* pKF);
     void AddMapPoint(MapPoint* pMP);
+    void AddMapPointBird(MapPointBird* pMPB);
     void EraseMapPoint(MapPoint* pMP);
     void EraseKeyFrame(KeyFrame* pKF);
     void SetReferenceMapPoints(const std::vector<MapPoint*> &vpMPs);
@@ -51,6 +54,7 @@ public:
     std::vector<KeyFrame*> GetAllKeyFrames();
     std::vector<MapPoint*> GetAllMapPoints();
     std::vector<MapPoint*> GetReferenceMapPoints();
+    std::vector<MapPointBird*> GetAllMapPointsBird();
 
     long unsigned int MapPointsInMap();
     long unsigned  KeyFramesInMap();
@@ -59,7 +63,7 @@ public:
 
     void clear();
 
-    vector<KeyFrame*> mvpKeyFrameOrigins;
+    std::vector<KeyFrame*> mvpKeyFrameOrigins;
 
     std::mutex mMutexMapUpdate;
 
@@ -68,6 +72,7 @@ public:
 
 protected:
     std::set<MapPoint*> mspMapPoints;
+    std::set<MapPointBird*> mspMapPointsBird;
     std::set<KeyFrame*> mspKeyFrames;
 
     std::vector<MapPoint*> mvpReferenceMapPoints;

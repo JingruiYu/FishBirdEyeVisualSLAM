@@ -8,7 +8,7 @@ long unsigned int MapPointBird::nNextId=0;
 
 MapPointBird::MapPointBird(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap)
 :mWorldPos(Pos.clone()),mpRefKF(pRefKF),mpMap(pMap),nObs(0),mnBALocalForKF(0),
-mnTrackReferenceForFrame(0),mnLastFrameSeen(0)
+mnTrackReferenceForFrame(0),mnLastFrameSeen(0), mbBad(false)
 {
     // cout<<"Construct Birdview MapPoint with KeyFrame "<<pRefKF->mnId<<endl;
     mnId = nNextId++;
@@ -16,7 +16,7 @@ mnTrackReferenceForFrame(0),mnLastFrameSeen(0)
 
 MapPointBird::MapPointBird(const cv::Mat &Pos, Frame* pFrame, Map* pMap, const int &idxF)
 :mWorldPos(Pos.clone()),mpMap(pMap),mpRefKF(static_cast<KeyFrame*>(NULL)),nObs(0),mnBALocalForKF(0),
-mnTrackReferenceForFrame(0),mnLastFrameSeen(0)
+mnTrackReferenceForFrame(0),mnLastFrameSeen(0), mbBad(false)
 {
     // cout<<"Construct Birdview MapPoint with Frame "<<pFrame->mnId<<endl;
     mnId = nNextId++;
@@ -30,10 +30,14 @@ void MapPointBird::AddObservation(KeyFrame* pKF, size_t idx)
     // cout<<"Birdview MapPoint "<<mnId<<" Add Observation for KeyFrame "<<pKF->mnId<<endl;
     unique_lock<mutex> lock(mMutexFeatures);
     if(mObservations.count(pKF))
+    {
+        cout << "the observation have!" << pKF->mnId << " -idx: " << idx << endl;
         return;
+    }
+        
     mObservations[pKF] = idx;
     nObs++;
-    // cout<<"Add Observation Successful."<<endl;
+    // cout<<"Add Observation Successful."<< pKF->mnId << " -idx: " << idx << endl;
 }
 
 void MapPointBird::EraseObservation(KeyFrame* pKF)
@@ -163,6 +167,11 @@ int MapPointBird::Observations()
     unique_lock<mutex> lock(mMutexFeatures);
     // cout<<"Get MapPoint Bird Num Observations Successful."<<endl;
     return nObs;
+}
+
+bool MapPointBird::isBad()
+{
+    return mbBad;
 }
 
 }  // namespace ORB_SLAM2

@@ -34,4 +34,6 @@ Local Map for Bird were build, which are used for search match and improve the i
 
 v1.0:
 Fusion Bird with Front, The map points of bird during the initiation is built.
-Maybe the initial frame should be the reference frame?
+
+v1.1:
+Bird matched per Frame. Birs MP is added to the KF and Map.

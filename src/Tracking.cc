@@ -494,12 +494,15 @@ void Tracking::Track()
         else
             MonocularInitialization();
 
-        tmpRefFrame = new Frame(mCurrentFrame);
+        tmpRefFrame = new Frame(mInitialFrame);
         mpFrameDrawer->Update(this);
+        tmpRefFrame = new Frame(mCurrentFrame);
 
         if (mState == OK)
         {
             cout << "Initial Frame is : " << mCurrentFrame.mnId << endl;
+            std::vector<MapPointBird*> vMPB = mpMap->GetAllMapPointsBird();
+            cout << "vMPB in MP is " << vMPB.size() << endl;
             getchar();
         }
         
@@ -521,6 +524,16 @@ void Tracking::Track()
             {
                 // Local Mapping might have changed some MapPoints tracked in last frame
                 CheckReplacedInLastFrame();
+
+                cv::Mat detlaT = cv::Mat::eye(4,4,CV_32F);
+                if(mCurrentFrame.mbHaveOdom && bLooseCouple)
+                    detlaT=Frame::GetTransformFromOdometer(mLastFrame.mGtPose,mCurrentFrame.mGtPose).inv();
+                else if (!mVelocity.empty())
+                    detlaT=mVelocity;
+                
+                mCurrentFrame.SetPose(detlaT*mLastFrame.mTcw);
+
+                GetPerFrameMatchedBirdPoints();
 
                 if(mVelocity.empty() || mCurrentFrame.mnId<mnLastRelocFrameId+2)
                 {
@@ -711,6 +724,9 @@ void Tracking::Track()
         mLastFrame = Frame(mCurrentFrame);
     }
 
+    std::vector<MapPointBird*> vMPB = mpMap->GetAllMapPointsBird();
+    cout << "vMPB in MP is " << vMPB.size();
+
     // Store frame pose information to retrieve the complete camera trajectory afterwards.
     if(!mCurrentFrame.mTcw.empty())
     {
@@ -866,6 +882,8 @@ void Tracking::CreateInitialMapMonocular()
     KeyFrame* pKFini = new KeyFrame(mInitialFrame,mpMap,mpKeyFrameDB);
     KeyFrame* pKFcur = new KeyFrame(mCurrentFrame,mpMap,mpKeyFrameDB);
 
+    cout << "pKFini" << pKFini->mnId << " frameId: " << pKFini->mnFrameId << endl;
+    cout << "pKFcur" << pKFcur->mnId << " frameId: " << pKFcur->mnFrameId << endl;
 
     pKFini->ComputeBoW();
     pKFcur->ComputeBoW();
@@ -914,13 +932,41 @@ void Tracking::CreateInitialMapMonocular()
     int nmatches;
     nmatches = BirdMatcher.BirdviewMatch(mCurrentFrame,mInitialFrame.mvKeysBird,mInitialFrame.mDescriptorsBird,mInitialFrame.mvpMapPointsBird,vDMatches12,0,10);
     FilterBirdOutlierInFront(&mInitialFrame, &mCurrentFrame, vDMatches12, 0.05);
-    cout << "the num of MPs -5-: " << mCurrentFrame.GetBirdMapPointsNum() << endl;
+    // cout << "the num of MPs -5-: " << mCurrentFrame.GetBirdMapPointsNum() << endl;
 
+    for (size_t i = 0; i < mInitialFrame.mvpMapPointsBird.size(); i++)
+    {
+        MapPointBird* pMPB = mInitialFrame.mvpMapPointsBird[i];
+        if (pMPB)
+        {
+            pKFini->AddMapPointBird(pMPB,i);
+            pMPB->AddObservation(pKFini,i);
+            pMPB->ComputeDistinctiveDescriptors();
+            
+            mpMap->AddMapPointBird(pMPB);
+        }
+    }
+
+    for (size_t i = 0; i < mCurrentFrame.mvpMapPointsBird.size(); i++)
+    {
+        MapPointBird* pMPB = mCurrentFrame.mvpMapPointsBird[i];
+        if (pMPB)
+        {
+            pKFcur->AddMapPointBird(pMPB,i);
+            pMPB->AddObservation(pKFcur,i);
+            pMPB->ComputeDistinctiveDescriptors();
+
+            mpMap->AddMapPointBird(pMPB);
+        }
+        
+    }
+    
+    
     /********************* Modified Here *********************/
     if(mCurrentFrame.mbHaveOdom&&bTightCouple)
     {
-        // Optimizer::GlobalBundleAdjustemntWithOdom(mpMap,20);
-        Optimizer::GlobalBundleAdjustemnt(mpMap,20);
+        Optimizer::GlobalBundleAdjustemntWithOdom(mpMap,20);
+        // Optimizer::GlobalBundleAdjustemnt(mpMap,20);
     }
     else
     {
@@ -1122,15 +1168,15 @@ bool Tracking::TrackReferenceKeyFrame()
     mCurrentFrame.mvpMapPoints = vpMapPointMatches;
 
     /********************* Modified Here *********************/
-    if(mCurrentFrame.mbHaveOdom&&bLooseCouple)
-    {
-        cv::Mat Tcl=Frame::GetTransformFromOdometer(mLastFrame.mGtPose,mCurrentFrame.mGtPose).inv();
-        mCurrentFrame.SetPose(Tcl*mLastFrame.mTcw);
-    }
-    else
-    {
-        mCurrentFrame.SetPose(mLastFrame.mTcw);
-    }
+    // if(mCurrentFrame.mbHaveOdom&&bLooseCouple)
+    // {
+    //     cv::Mat Tcl=Frame::GetTransformFromOdometer(mLastFrame.mGtPose,mCurrentFrame.mGtPose).inv();
+    //     mCurrentFrame.SetPose(Tcl*mLastFrame.mTcw);
+    // }
+    // else
+    // {
+    //     mCurrentFrame.SetPose(mLastFrame.mTcw);
+    // }
 
     Optimizer::PoseOptimization(&mCurrentFrame);
 
@@ -1233,15 +1279,15 @@ bool Tracking::TrackWithMotionModel()
     UpdateLastFrame();
 
     /********************* Modified Here *********************/
-    if(mLastFrame.mbHaveOdom&&bLooseCouple)
-    {
-        cv::Mat Tcl=Frame::GetTransformFromOdometer(mLastFrame.mGtPose,mCurrentFrame.mGtPose).inv();
-        mCurrentFrame.SetPose(Tcl*mLastFrame.mTcw);
-    }
-    else
-    {
-        mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
-    }
+    // if(mLastFrame.mbHaveOdom&&bLooseCouple)
+    // {
+    //     cv::Mat Tcl=Frame::GetTransformFromOdometer(mLastFrame.mGtPose,mCurrentFrame.mGtPose).inv();
+    //     mCurrentFrame.SetPose(Tcl*mLastFrame.mTcw);
+    // }
+    // else
+    // {
+    //     mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
+    // }
 
     fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
 
@@ -1805,6 +1851,7 @@ void Tracking::FilterBirdOutlierInFront(Frame* MatchedFrame1, Frame* MatchedFram
             {
                 MapPointBird *pMPBird = new MapPointBird(ptwC,MatchedFrame2,mpMap,iMatch.trainIdx);
                 MatchedFrame2->mvpMapPointsBird[iMatch.trainIdx] = pMPBird;
+                MatchedFrame1->mvpMapPointsBird[iMatch.queryIdx] = pMPBird;
                 buildNew++;
             }
 
@@ -2518,11 +2565,11 @@ void Tracking::UpdateBirdLocalMap()
     }
 
     cout << "localFrame.size() after : " << localFrame.size() << endl;
-    // for (auto ite = localFrame.begin(), lend = localFrame.end(); ite != lend; ite++)
-    // {
-    //     Frame* tmF = *ite;
-    //     cout << "id: " << tmF->mnId << endl;
-    // }
+    for (auto ite = localFrame.begin(), lend = localFrame.end(); ite != lend; ite++)
+    {
+        Frame* tmF = *ite;
+        cout << "id: " << tmF->mnId << endl;
+    }
 
     localMapPointBirds.clear();
     for (auto itMPB = setlocalMapPointBirds.begin(), lend = setlocalMapPointBirds.end(); itMPB != lend; itMPB++)
@@ -2541,6 +2588,15 @@ void Tracking::UpdateBirdLocalMap()
     // cout << "allMapPtBirds: " << allMapPtBirds << endl;
     // cout << "setlocalMapPointBirds.size(): " << setlocalMapPointBirds.size() << endl;
     // cout << "localMapPointBirds.size(): " << localMapPointBirds.size() << endl;
+}
+
+
+void Tracking::GetPerFrameMatchedBirdPoints()
+{
+    ORBmatcher BirdMatcher(0.9,true);
+    vector<cv::DMatch> vDMatches12;
+    int nmatchesBird = BirdMatcher.BirdviewMatch(mCurrentFrame,tmpRefFrame->mvKeysBird,tmpRefFrame->mDescriptorsBird,tmpRefFrame->mvpMapPointsBird,vDMatches12,0,10);
+    FilterBirdOutlierInFront(tmpRefFrame, &mCurrentFrame, vDMatches12, 0.05);
 }
 
 } //namespace ORB_SLAM

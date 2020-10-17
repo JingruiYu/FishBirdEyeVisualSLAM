@@ -127,6 +127,8 @@ public:
     // See format details at: http://www.cvlibs.net/datasets/kitti/eval_odometry.php
     void SaveKeyFrameTrajectoryOdomTUM(const string &filename);
 
+    void SaveKeyFrameIdx(const string &filename);
+
     // TODO: Save/Load functions
     // SaveMap(const string &filename);
     // LoadMap(const string &filename);

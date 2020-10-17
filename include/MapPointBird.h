@@ -31,6 +31,7 @@ public:
     void ComputeDistinctiveDescriptors();
     cv::Mat GetDescriptor();
     int Observations();
+    bool isBad();
 
 public:
     long unsigned int mnId;
@@ -58,6 +59,8 @@ public:
 
     std::mutex mMutexPos;
     std::mutex mMutexFeatures;
+
+    bool mbBad;
 
 };
 

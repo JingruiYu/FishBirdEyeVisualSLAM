@@ -22,6 +22,7 @@
 #define KEYFRAME_H
 
 #include "MapPoint.h"
+#include "MapPointBird.h"
 #include "Thirdparty/DBoW2/DBoW2/BowVector.h"
 #include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
 #include "ORBVocabulary.h"
@@ -37,6 +38,7 @@ namespace ORB_SLAM2
 
 class Map;
 class MapPoint;
+class MapPointBird;
 class Frame;
 class KeyFrameDatabase;
 
@@ -117,6 +119,7 @@ public:
         return pKF1->mnId<pKF2->mnId;
     }
 
+    void AddMapPointBird(MapPointBird* pMPB, const size_t &idx);
 
     // The following variables are accesed from only 1 thread or never change (no mutex needed).
 public:
@@ -166,6 +169,13 @@ public:
     const std::vector<float> mvuRight; // negative value for monocular points
     const std::vector<float> mvDepth; // negative value for monocular points
     const cv::Mat mDescriptors;
+
+    std::vector<cv::KeyPoint> mvKeysBird;
+    std::vector<cv::Point3f> mvKeysBirdCamXYZ;
+    std::vector<cv::Point3f> mvKeysBirdBaseXY;
+    std::vector<MapPointBird*> mvpMapPointsBird;
+    std::vector<bool> mvBirdOutlier;
+    cv::Mat mDescriptorsBird;
 
     //BoW
     DBoW2::BowVector mBowVec;
