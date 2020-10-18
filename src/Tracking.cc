@@ -43,6 +43,7 @@ using namespace std;
 
 extern bool bTightCouple;
 extern bool bLooseCouple;
+extern bool bHaveBird;
 
 namespace ORB_SLAM2
 {
@@ -725,7 +726,7 @@ void Tracking::Track()
     }
 
     std::vector<MapPointBird*> vMPB = mpMap->GetAllMapPointsBird();
-    cout << "vMPB in MP is " << vMPB.size();
+    cout << "vMPB in MP is " << vMPB.size() << endl;
 
     // Store frame pose information to retrieve the complete camera trajectory afterwards.
     if(!mCurrentFrame.mTcw.empty())
@@ -1177,8 +1178,10 @@ bool Tracking::TrackReferenceKeyFrame()
     // {
     //     mCurrentFrame.SetPose(mLastFrame.mTcw);
     // }
-
-    Optimizer::PoseOptimization(&mCurrentFrame);
+    if (bHaveBird)
+        Optimizer::PoseOptimizationWithBird(&mCurrentFrame);
+    else
+        Optimizer::PoseOptimization(&mCurrentFrame);
 
     // Discard outliers
     int nmatchesMap = 0;
@@ -1310,7 +1313,10 @@ bool Tracking::TrackWithMotionModel()
         return false;
 
     // Optimize frame pose with all matches
-    Optimizer::PoseOptimization(&mCurrentFrame);
+    if (bHaveBird)
+        Optimizer::PoseOptimizationWithBird(&mCurrentFrame);
+    else
+        Optimizer::PoseOptimization(&mCurrentFrame);
 
     // Discard outliers
     int nmatchesMap = 0;
@@ -1346,6 +1352,8 @@ bool Tracking::TrackLocalMap()
 {
     // We have an estimation of the camera pose and some map points tracked in the frame.
     // We retrieve the local map and try to find matches to points in the local map.
+
+    GetLocalMapForBird();
 
     UpdateLocalMap();
 
@@ -1955,6 +1963,38 @@ void Tracking::SearchLocalPoints()
             th=5;
         matcher.SearchByProjection(mCurrentFrame,mvpLocalMapPoints,th);
     }
+}
+
+void Tracking::GetLocalMapForBird()
+{
+    map<KeyFrame*,int> keyframeBird;
+    int obserMax = INT_MIN;
+    int obserNum = 0;
+    for (int i = 0; i < mCurrentFrame.Nbird; i++)
+    {
+        obserNum = 0;
+        if (mCurrentFrame.mvpMapPointsBird[i])
+        {
+            MapPointBird* pMPB = mCurrentFrame.mvpMapPointsBird[i];
+            if (!pMPB->isBad())
+            {
+                const map<KeyFrame*,size_t> observation = pMPB->GetObservations();
+                for (map<KeyFrame*,size_t>::const_iterator it=observation.begin(), itend=observation.end(); it!=itend; it++)
+                {
+                    keyframeBird[it->first]++;
+                    obserNum++;
+                }
+            }
+        }
+        if (obserNum > obserMax)
+            obserMax = obserNum;
+    }
+    
+    cout << "obserMax : " << obserMax << endl;
+
+    if (obserMax > 2)
+        getchar();
+    
 }
 
 void Tracking::UpdateLocalMap()
@@ -2570,7 +2610,7 @@ void Tracking::UpdateBirdLocalMap()
         Frame* tmF = *ite;
         cout << "id: " << tmF->mnId << endl;
     }
-
+    
     localMapPointBirds.clear();
     for (auto itMPB = setlocalMapPointBirds.begin(), lend = setlocalMapPointBirds.end(); itMPB != lend; itMPB++)
     {

@@ -21,10 +21,14 @@
 #ifndef MAP_H
 #define MAP_H
 
+#include<opencv2/core/core.hpp>
+#include<opencv2/features2d/features2d.hpp>
+
 #include "MapPoint.h"
 #include "MapPointBird.h"
 #include "KeyFrame.h"
 #include <set>
+#include <list>
 
 #include <mutex>
 
@@ -50,11 +54,13 @@ public:
     void SetReferenceMapPoints(const std::vector<MapPoint*> &vpMPs);
     void InformNewBigChange();
     int GetLastBigChangeIdx();
+    void UpdateLocalBirdMap();
 
     std::vector<KeyFrame*> GetAllKeyFrames();
     std::vector<MapPoint*> GetAllMapPoints();
     std::vector<MapPoint*> GetReferenceMapPoints();
     std::vector<MapPointBird*> GetAllMapPointsBird();
+    std::vector<MapPointBird*> GetLocalMapPointsBird();
 
     long unsigned int MapPointsInMap();
     long unsigned  KeyFramesInMap();
@@ -69,6 +75,10 @@ public:
 
     // This avoid that two points are created simultaneously in separate threads (id conflict)
     std::mutex mMutexPointCreation;
+
+    std::list<KeyFrame*> localKFbird;
+    std::vector<MapPointBird*> localMapPointBirds;
+    cv::Mat curTw;
 
 protected:
     std::set<MapPoint*> mspMapPoints;

@@ -37,3 +37,4 @@ Fusion Bird with Front, The map points of bird during the initiation is built.
 
 v1.1:
 Bird matched per Frame. Birs MP is added to the KF and Map.
+The local Map for bird is created, as well as the local KFs.

@@ -19,7 +19,7 @@
 */
 
 #include "Map.h"
-
+#include "Converter.h"
 #include<mutex>
 
 namespace ORB_SLAM2
@@ -35,6 +35,10 @@ void Map::AddKeyFrame(KeyFrame *pKF)
     mspKeyFrames.insert(pKF);
     if(pKF->mnId>mnMaxKFid)
         mnMaxKFid=pKF->mnId;
+    
+    localKFbird.push_front(pKF);
+    curTw = pKF->GetCameraCenter();
+    UpdateLocalBirdMap();
 }
 
 void Map::AddMapPoint(MapPoint *pMP)
@@ -85,6 +89,64 @@ int Map::GetLastBigChangeIdx()
     return mnBigChangeIdx;
 }
 
+void Map::UpdateLocalBirdMap()
+{
+    set<MapPointBird*> setlocalMapPointBirds;
+    for (auto itF = localKFbird.begin(), lend = localKFbird.end(); itF !=lend; )
+    {
+        KeyFrame* tmKF = *itF;
+        cv::Mat refTw = tmKF->GetCameraCenter();
+        double dis = cv::norm(refTw-curTw,cv::NORM_L2);
+
+        if (dis > 5)
+        {
+            localKFbird.erase(itF++);
+        }
+        else
+        {
+            std::vector<MapPointBird*> submvMPBirds = tmKF->mvpMapPointsBird;
+            int pMP_sum = 0;
+            for (size_t i = 0; i < submvMPBirds.size(); i++)
+            {
+                MapPointBird* pMPBird = submvMPBirds[i];
+                if (!pMPBird)
+                    continue;
+
+                if(!setlocalMapPointBirds.count(pMPBird))
+                {
+                    setlocalMapPointBirds.insert(pMPBird);
+                    pMP_sum++;
+                }                
+            }
+
+            if(pMP_sum < 10)
+                localKFbird.erase(itF++);
+            else
+                itF++;
+        }
+    }
+
+    localMapPointBirds.clear();
+    for (auto itMPB = setlocalMapPointBirds.begin(), lend = setlocalMapPointBirds.end(); itMPB != lend; itMPB++)
+    {
+        MapPointBird* pMPBird = *itMPB;
+
+        if (pMPBird)
+        {
+            localMapPointBirds.push_back(pMPBird);
+        }
+    }
+
+    cout << "\033[33m" << "localMapPointBirds.size(): " << localMapPointBirds.size() << "\033[0m" << endl;
+    
+    for (auto ite = localKFbird.begin(), lend = localKFbird.end(); ite != lend; ite++)
+    {
+        KeyFrame* tmKF = *ite;
+        cout <<"id: " << tmKF->mnFrameId << endl;
+    }
+    cout << "localKF.size() after: " << localKFbird.size() << endl;
+}
+
 vector<KeyFrame*> Map::GetAllKeyFrames()
 {
     unique_lock<mutex> lock(mMutexMap);
@@ -101,6 +163,12 @@ vector<MapPointBird*> Map::GetAllMapPointsBird()
 {
     unique_lock<mutex> lock(mMutexMap);
     return vector<MapPointBird*>(mspMapPointsBird.begin(),mspMapPointsBird.end());
+}
+
+vector<MapPointBird*> Map::GetLocalMapPointsBird()
+{
+    unique_lock<mutex> lock(mMutexMap);
+    return vector<MapPointBird*>(localMapPointBirds.begin(),localMapPointBirds.end());
 }
 
 long unsigned int Map::MapPointsInMap()

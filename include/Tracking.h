@@ -134,7 +134,7 @@ public:
     list<KeyFrame*> mlpReferences;
     list<double> mlFrameTimes;
     list<bool> mlbLost;
-
+    
     list<Frame*> localFrame;
     std::vector<MapPointBird*> localMapPointBirds;
 
@@ -151,6 +151,8 @@ public:
     void UpdateBirdLocalMap();
 
     void GetPerFrameMatchedBirdPoints();
+
+    void GetLocalMapForBird();
 
 protected:
 
