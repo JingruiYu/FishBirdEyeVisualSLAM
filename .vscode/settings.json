@@ -54,6 +54,9 @@
         "typeindex": "cpp",
         "typeinfo": "cpp",
         "valarray": "cpp",
-        "condition_variable": "cpp"
+        "condition_variable": "cpp",
+        "core": "cpp",
+        "numericaldiff": "cpp",
+        "sparsecore": "cpp"
     }
 }

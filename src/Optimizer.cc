@@ -1954,7 +1954,7 @@ void Optimizer::BundleAdjustmentWithOdom(const vector<KeyFrame *> &vpKFs, const 
     }    
 }
 
-void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, Map* pMap)
+void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, Map* pMap, const float wB)
 {    
     // Local KeyFrames: First Breath Search from Current Keyframe
     list<KeyFrame*> lLocalKeyFrames;
@@ -2006,6 +2006,44 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
             }
         }
     }
+
+    list<MapPointBird*> lLocalMapPointsBirds;
+    for (list<KeyFrame*>::iterator lit=lLocalKeyFrames.begin(), lend=lLocalKeyFrames.end(); lit!=lend; lit++)
+    {
+        vector<MapPointBird*> vpMPBs = (*lit)->GetMapPointBirdMatches();
+        for (vector<MapPointBird*>::iterator vit=vpMPBs.begin(), vend=vpMPBs.end(); vit!=vend; vit++)
+        {
+            MapPointBird* pMPB = *vit;
+            if (pMPB)
+            {
+                if (!pMPB->isBad())
+                {
+                    if (pMPB->mnBALocalForKF != pKF->mnId)
+                    {
+                        lLocalMapPointsBirds.push_back(pMPB);
+                        pMPB->mnBALocalForKF=pKF->mnId;
+                    }
+                }
+            }
+        }
+    }
+
+    for(list<MapPointBird*>::iterator lit=lLocalMapPointsBirds.begin(), lend=lLocalMapPointsBirds.end(); lit!=lend; lit++)
+    {
+        map<KeyFrame*,size_t> observations = (*lit)->GetObservations();
+        for (map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
+        {
+            KeyFrame* pKFi = mit->first;
+            if (pKFi->mnBALocalForKF!=pKF->mnId && pKFi->mnBAFixedForKF!=pKF->mnId)
+            {
+                pKFi->mnBAFixedForKF=pKF->mnId;
+                if(!pKFi->isBad())
+                    lFixedCameras.push_back(pKFi);
+            }
+        }
+    }
+    
+
 
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
@@ -2065,6 +2103,7 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
 
     // Set MapPoint vertices
     const int nExpectedSize = (lLocalKeyFrames.size()+lFixedCameras.size())*lLocalMapPoints.size();
+    const int nExpectedBirdSize = (lLocalKeyFrames.size()+lFixedCameras.size())*lLocalMapPointsBirds.size();
 
 #ifdef USE_SOPHUS
     vector<EdgeProjectXYZ2UVLieAlgebra*> vpEdgesMono;
@@ -2072,33 +2111,31 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
     vector<EdgeSE3ProjectXYZ2UVQuat*> vpEdgesMono;
 #endif
     vpEdgesMono.reserve(nExpectedSize);
-
     vector<KeyFrame*> vpEdgeKFMono;
     vpEdgeKFMono.reserve(nExpectedSize);
-
     vector<MapPoint*> vpMapPointEdgeMono;
     vpMapPointEdgeMono.reserve(nExpectedSize);
 
-    // vector<g2o::EdgeStereoSE3ProjectXYZ*> vpEdgesStereo;
-    // vpEdgesStereo.reserve(nExpectedSize);
-
-    // vector<KeyFrame*> vpEdgeKFStereo;
-    // vpEdgeKFStereo.reserve(nExpectedSize);
-
-    // vector<MapPoint*> vpMapPointEdgeStereo;
-    // vpMapPointEdgeStereo.reserve(nExpectedSize);
+    vector<EdgeSE3ProjectXYZ2XYZQuat*> vpEdgesBird;
+    vpEdgesBird.reserve(nExpectedBirdSize);
+    vector<KeyFrame*> vpEdgeKFBird;
+    vpEdgesBird.reserve(nExpectedBirdSize);
+    vector<MapPointBird*> vpMapPointEdgeBird;
+    vpMapPointEdgeBird.reserve(nExpectedBirdSize);    
 
     const float thHuberMono = sqrt(5.991);
     // const float thHuberStereo = sqrt(7.815);
     // const float thHuber6D = sqrt(12.59);
-
+    long unsigned int maxMPid = 0;
     for(list<MapPoint*>::iterator lit=lLocalMapPoints.begin(), lend=lLocalMapPoints.end(); lit!=lend; lit++)
     {
         MapPoint* pMP = *lit;
         g2o::VertexSBAPointXYZ* vPoint = new g2o::VertexSBAPointXYZ();
         vPoint->setEstimate(Converter::toVector3d(pMP->GetWorldPos()));
         unsigned long int id = pMP->mnId+maxKFid+1;
-
+        if (id > maxMPid)
+            maxMPid = id;
+        
         vPoint->setId(id);
         vPoint->setMarginalized(true);
         optimizer.addVertex(vPoint);
@@ -2149,39 +2186,54 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
                 }
                 else // Stereo observation
                 {
-                    // Eigen::Matrix<double,3,1> obs;
-                    // const float kp_ur = pKFi->mvuRight[mit->second];
-                    // obs << kpUn.pt.x, kpUn.pt.y, kp_ur;
-
-                    // g2o::EdgeStereoSE3ProjectXYZ* e = new g2o::EdgeStereoSE3ProjectXYZ();
-
-                    // e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
-                    // e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pKFi->mnId)));
-                    // e->setMeasurement(obs);
-                    // const float &invSigma2 = pKFi->mvInvLevelSigma2[kpUn.octave];
-                    // Eigen::Matrix3d Info = Eigen::Matrix3d::Identity()*invSigma2;
-                    // e->setInformation(Info);
-
-                    // g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
-                    // e->setRobustKernel(rk);
-                    // rk->setDelta(thHuberStereo);
-
-                    // e->fx = pKFi->fx;
-                    // e->fy = pKFi->fy;
-                    // e->cx = pKFi->cx;
-                    // e->cy = pKFi->cy;
-                    // e->bf = pKFi->mbf;
-
-                    // optimizer.addEdge(e);
-                    // vpEdgesStereo.push_back(e);
-                    // vpEdgeKFStereo.push_back(pKFi);
-                    // vpMapPointEdgeStereo.push_back(pMP);
                     continue;
                 }
             }
         }
     }
 
+    // Birdview Points and Edges
+    for (list<MapPointBird*>::iterator lit=lLocalMapPointsBirds.begin(), lend=lLocalMapPointsBirds.end(); lit!=lend; lit++)
+    {
+        MapPointBird* pMPBird = *lit;
+        g2o::VertexSBAPointXYZ* vPoint = new g2o::VertexSBAPointXYZ();
+        vPoint->setEstimate(Converter::toVector3d(pMPBird->GetWorldPos()));
+        int id = pMPBird->mnId+maxMPid+1;
+        vPoint->setId(id);
+        vPoint->setMarginalized(true);
+        optimizer.addVertex(vPoint);
+
+        const map<KeyFrame*,size_t> observations = pMPBird->GetObservations();
+        for (map<KeyFrame*,size_t>::const_iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
+        {
+            KeyFrame* pKFi = mit->first;
+            if (!pKFi->isBad())
+            {
+                const cv::Point3f &pt = pKFi->mvKeysBirdCamXYZ[mit->second];
+
+                Eigen::Matrix<double,3,1> obs;
+                obs << pt.x, pt.y, pt.z;
+
+                EdgeSE3ProjectXYZ2XYZQuat *e = new EdgeSE3ProjectXYZ2XYZQuat();
+
+                e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
+                e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pKFi->mnId)));
+                e->setMeasurement(obs);
+                const float &invSigma2 = pKFi->mvInvLevelSigma2[pKFi->mvKeysBird[mit->second].octave];
+                e->setInformation(Eigen::Matrix3d::Identity()*invSigma2*wB);
+
+                g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                e->setRobustKernel(rk);
+                rk->setDelta(thHuberMono);
+
+                optimizer.addEdge(e);
+                vpEdgesBird.push_back(e);
+                vpEdgeKFBird.push_back(pKFi);
+                vpMapPointEdgeBird.push_back(pMPBird);
+            }
+        }
+    }
+    
     //PoseGraph Constraints
     vector<KeyFrame*> vLocalKeyFrames(lLocalKeyFrames.begin(),lLocalKeyFrames.end());
     sort(vLocalKeyFrames.begin(),vLocalKeyFrames.end(),[](KeyFrame* a,KeyFrame* b){return (a->mnId<b->mnId);});
@@ -2293,21 +2345,19 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
         e->setRobustKernel(0);
     }
 
-    // for(size_t i=0, iend=vpEdgesStereo.size(); i<iend;i++)
-    // {
-    //     g2o::EdgeStereoSE3ProjectXYZ* e = vpEdgesStereo[i];
-    //     MapPoint* pMP = vpMapPointEdgeStereo[i];
+    for (size_t i = 0, iend=vpEdgesBird.size(); i < iend; i++)
+    {
+        EdgeSE3ProjectXYZ2XYZQuat *e = vpEdgesBird[i];
+        
+        e->computeError();
+        if(e->chi2()>5.991) 
+        {
+            e->setLevel(1);
+        }
 
-    //     if(pMP->isBad())
-    //         continue;
-
-    //     if(e->chi2()>7.815 || !e->isDepthPositive())
-    //     {
-    //         e->setLevel(1);
-    //     }
-
-    //     e->setRobustKernel(0);
-    // }
+        e->setRobustKernel(0);
+    }
+    
 
     // Optimize again without the outliers
     optimizer.initializeOptimization(0);
@@ -2339,20 +2389,20 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
         }
     }
 
-    // for(size_t i=0, iend=vpEdgesStereo.size(); i<iend;i++)
-    // {
-    //     g2o::EdgeStereoSE3ProjectXYZ* e = vpEdgesStereo[i];
-    //     MapPoint* pMP = vpMapPointEdgeStereo[i];
-
-    //     if(pMP->isBad())
-    //         continue;
-
-    //     if(e->chi2()>7.815 || !e->isDepthPositive())
-    //     {
-    //         KeyFrame* pKFi = vpEdgeKFStereo[i];
-    //         vToErase.push_back(make_pair(pKFi,pMP));
-    //     }
-    // }
+    vector< pair<KeyFrame*,MapPointBird*> > vToEraseBird;
+    vToEraseBird.reserve(vpEdgesBird.size());
+    for (size_t i = 0; i < vpEdgesBird.size(); i++)
+    {
+        EdgeSE3ProjectXYZ2XYZQuat *e = vpEdgesBird[i];
+        
+        if(e->chi2()>5.991)
+        {
+            MapPointBird* pMPBird = vpMapPointEdgeBird[i];
+            KeyFrame* pKFi = vpEdgeKFBird[i];
+            vToEraseBird.push_back(make_pair(pKFi,pMPBird));
+        }
+    }
+    
 
     // Get Map Mutex
     unique_lock<mutex> lock(pMap->mMutexMapUpdate);
@@ -2368,6 +2418,17 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
         }
     }
 
+    if (!vToEraseBird.empty())
+    {
+        for (size_t i = 0; i < vToEraseBird.size(); i++)
+        {
+            KeyFrame* pKFi = vToEraseBird[i].first;
+            MapPointBird* pMPi = vToEraseBird[i].second;
+            pKFi->EraseMapPointBirdMatch(pMPi);
+            pMPi->EraseObservation(pKFi);
+        }
+    }
+    
     // Recover optimized data
 
     //Keyframes
@@ -2393,6 +2454,13 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
         g2o::VertexSBAPointXYZ* vPoint = static_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(pMP->mnId+maxKFid+1));
         pMP->SetWorldPos(Converter::toCvMat(vPoint->estimate()));
         pMP->UpdateNormalAndDepth();
+    }
+
+    for(list<MapPointBird*>::iterator lit=lLocalMapPointsBirds.begin(), lend=lLocalMapPointsBirds.end(); lit!=lend; lit++)
+    {
+        MapPointBird* pMPB = *lit;
+        g2o::VertexSBAPointXYZ* vPoint = static_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(pMPB->mnId+maxMPid+1));
+        pMPB->SetWorldPos(Converter::toCvMat(vPoint->estimate()));
     }
 }
 

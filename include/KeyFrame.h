@@ -86,11 +86,14 @@ public:
     void AddMapPoint(MapPoint* pMP, const size_t &idx);
     void EraseMapPointMatch(const size_t &idx);
     void EraseMapPointMatch(MapPoint* pMP);
+    void EraseMapPointBirdMatch(MapPointBird* pMPB);
     void ReplaceMapPointMatch(const size_t &idx, MapPoint* pMP);
     std::set<MapPoint*> GetMapPoints();
     std::vector<MapPoint*> GetMapPointMatches();
+    std::vector<MapPointBird*> GetMapPointBirdMatches();
     int TrackedMapPoints(const int &minObs);
     MapPoint* GetMapPoint(const size_t &idx);
+    MapPointBird* GetMapPointBird(const size_t &idx);
     int GetMapPointsInlierNum();
 
     // KeyPoint functions

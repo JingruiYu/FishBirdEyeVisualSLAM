@@ -1360,7 +1360,10 @@ bool Tracking::TrackLocalMap()
     SearchLocalPoints();
 
     // Optimize Pose
-    Optimizer::PoseOptimization(&mCurrentFrame);
+    if (bHaveBird)
+        Optimizer::PoseOptimizationWithBird(&mCurrentFrame);
+    else
+        Optimizer::PoseOptimization(&mCurrentFrame);
     mnMatchesInliers = 0;
 
     //int pointsCount=0,inliersCount=0;
@@ -1967,34 +1970,33 @@ void Tracking::SearchLocalPoints()
 
 void Tracking::GetLocalMapForBird()
 {
-    map<KeyFrame*,int> keyframeBird;
-    int obserMax = INT_MIN;
-    int obserNum = 0;
-    for (int i = 0; i < mCurrentFrame.Nbird; i++)
+    ORBmatcher BirdMatcher(0.9,true);
+    vector<MapPointBird*> vlocalMPB = mpMap->GetLocalMapPointsBird();
+    int numB = mCurrentFrame.GetBirdMapPointsNum();
+    if (vlocalMPB.size() > 10)
     {
-        obserNum = 0;
-        if (mCurrentFrame.mvpMapPointsBird[i])
-        {
-            MapPointBird* pMPB = mCurrentFrame.mvpMapPointsBird[i];
-            if (!pMPB->isBad())
-            {
-                const map<KeyFrame*,size_t> observation = pMPB->GetObservations();
-                for (map<KeyFrame*,size_t>::const_iterator it=observation.begin(), itend=observation.end(); it!=itend; it++)
-                {
-                    keyframeBird[it->first]++;
-                    obserNum++;
-                }
-            }
-        }
-        if (obserNum > obserMax)
-            obserMax = obserNum;
+        int nmatches = nmatches = BirdMatcher.BirdMapPointMatch(mCurrentFrame, vlocalMPB, 10, 0.05);
+    }
+    int numA = mCurrentFrame.GetBirdMapPointsNum();
+    
+    cout << "\033[35m" << "the bird Point before local map search is " << numB << " , and the after is : " << numA << "\033[0m" << endl;
+    
+    if (numB == numA)
+    {
+        inlierCnt++;
+    }
+    else if (numB < numA)
+    {
+        outlierCnt++;
+    }
+    else
+    {
+        cout << "numB > numA ? " << endl;
+        getchar();
     }
     
-    cout << "obserMax : " << obserMax << endl;
 
-    if (obserMax > 2)
-        getchar();
-    
+    cout << "inlierCnt: " << inlierCnt << " outlierCnt: " << outlierCnt << endl;    
 }
 
 void Tracking::UpdateLocalMap()

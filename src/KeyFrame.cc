@@ -56,6 +56,9 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
             mGrid[i][j] = F.mGrid[i][j];
     }
     
+
+    int obserMax = INT_MIN;
+    int obserNum = 0;
     int addPtBNum = 0;
     for (size_t i = 0; i < mvpMapPointsBird.size(); i++)
     {
@@ -66,10 +69,23 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
             pMPB->ComputeDistinctiveDescriptors();
             addPtBNum++;
             mpMap->AddMapPointBird(pMPB);
+
+            obserNum = 0;
+            const map<KeyFrame*,size_t> observation = pMPB->GetObservations();
+            for (map<KeyFrame*,size_t>::const_iterator it=observation.begin(), itend=observation.end(); it!=itend; it++)
+            {
+                obserNum++;
+            }
+            if (obserNum > obserMax)
+                obserMax = obserNum;
         }
     }
     cout << "\033[36m" << "addPtBNum: " << addPtBNum << "\033[0m" << endl;
     
+    cout << "obserMax : " << obserMax << endl;
+
+    // if (obserMax > 2)
+    //     getchar();
 
     SetPose(F.mTcw);    
 }
@@ -250,6 +266,12 @@ void KeyFrame::EraseMapPointMatch(MapPoint* pMP)
         mvpMapPoints[idx]=static_cast<MapPoint*>(NULL);
 }
 
+void KeyFrame::EraseMapPointBirdMatch(MapPointBird* pMPB)
+{
+    int idx = pMPB->GetIndexInKeyFrame(this);
+    if(idx>=0)
+        mvpMapPointsBird[idx]=static_cast<MapPointBird*>(NULL);
+}
 
 void KeyFrame::ReplaceMapPointMatch(const size_t &idx, MapPoint* pMP)
 {
@@ -323,6 +345,18 @@ MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     return mvpMapPoints[idx];
+}
+
+vector<MapPointBird*> KeyFrame::GetMapPointBirdMatches()
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    return mvpMapPointsBird;
+}
+
+MapPointBird* KeyFrame::GetMapPointBird(const size_t &idx)
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    return mvpMapPointsBird[idx];
 }
 
 void KeyFrame::UpdateConnections()
