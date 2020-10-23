@@ -27,6 +27,7 @@
 #include<mutex>
 
 extern bool bTightCouple;
+extern bool bHaveBird;
 
 namespace ORB_SLAM2
 {
@@ -83,7 +84,7 @@ void LocalMapping::Run()
                 /********************* Modified Here *********************/
                 if(mpMap->KeyFramesInMap()>2)
                 {
-                    if(mpCurrentKeyFrame->mbHaveOdom && bTightCouple)
+                    if(bHaveBird || bTightCouple)
                     {
                         cout << "bTightCouple is true" << endl;
 

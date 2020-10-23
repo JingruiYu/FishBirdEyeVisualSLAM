@@ -28,6 +28,8 @@
 
 #include<thread>
 
+extern bool bLooseCouple;
+
 namespace ORB_SLAM2
 {
 
@@ -42,15 +44,8 @@ Initializer::Initializer(const Frame &ReferenceFrame, float sigma, int iteration
     mMaxIterations = iterations;
 
     /********************* Modified Here *********************/
-    if(ReferenceFrame.mbHaveOdom)
-    {
-        mbHaveOdom=true;
+    if(bLooseCouple)
         mOdomPose1=ReferenceFrame.mGtPose;
-    }
-    else
-    {
-        mbHaveOdom=false;
-    }
 }
 
 bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatches12, cv::Mat &R21, cv::Mat &t21,
@@ -61,7 +56,7 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     mvKeys2 = CurrentFrame.mvKeysUn;
 
     /********************* Modified Here *********************/
-    if(mbHaveOdom)
+    if(bLooseCouple)
     {
         mOdomPose2=CurrentFrame.mGtPose;
     }
@@ -573,34 +568,7 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
     DecomposeE(E21,R1,R2,t);
 
     /********************* Modified Here *********************/
-    //if we have odometry information, use it to fix the scale of t
-    // if(mbHaveOdom)
-    // {
-    //     cv::Mat T21=Frame::GetTransformFromOdometer(mOdomPose1,mOdomPose2);
-    //     cv::Vec2d trans1=cv::Vec2d(T21.at<float>(0,3),T21.at<float>(1,3));
-    //     cout<<"trans1 = "<<trans1<<endl;
-    //     cv::Vec2d trans2=cv::Vec2d(t.at<float>(0,0),t.at<float>(1,0));
-    //     cout<<"trans2 = "<<trans2<<endl;
-    //     //since we are initializing here, the world frame is the same as 
-    //     //the camera frame 1, and the translation 't' between frame 1 and frame 2 
-    //     //equals 'trans' in the xy plane projection.
-    //     double dist1=sqrt(trans1[0]*trans1[0]+trans1[1]*trans1[1]);
-    //     double dist2=sqrt(trans2[0]*trans2[0]+trans2[1]*trans2[1]);
-    //     cout<<"dist1 = "<<dist1<<" , dist2 = "<<dist2<<endl;
-
-    //     double scale=0;
-    //     scale=dist1/dist2;
-        
-    //     if(scale>0)
-    //     {
-    //         cout<<"scale = "<<scale<<endl;
-    //         cout<<"before scale: t = "<<t.t()<<endl;
-    //         t=t*scale;
-    //         cout<<"after scale: t = "<<t.t()<<endl;
-    //     }
-    // }
-
-    if(mbHaveOdom)
+    if(bLooseCouple)
     {
         cv::Mat T21=Frame::GetTransformFromOdometer(mOdomPose1,mOdomPose2).inv();
         cv::Mat R3=T21.rowRange(0,3).colRange(0,3);
@@ -715,8 +683,8 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
     // Recover the 4 motion hypotheses
     DecomposeE(E21,R1,R2,t);
 
-    cv::Mat R3;
-    if(mbHaveOdom)
+    cv::Mat R3=cv::Mat::eye(3,3,CV_32F);
+    if(bLooseCouple)
     {
         cv::Mat T21=Frame::GetTransformFromOdometer(mRefFrame.mGtPose,mCurFrame.mGtPose).inv();
         R3=T21.rowRange(0,3).colRange(0,3);
@@ -749,7 +717,12 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
     int nGood4 = ReCheckRT(R2,t2,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D4, 4.0*mSigma2, vbTriangulated4, parallax4);
     int nGood5 = ReCheckRT(R3,t1,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D5, 4.0*mSigma2, vbTriangulated5, parallax5);
     int nGood6 = ReCheckRT(R3,t2,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D6, 4.0*mSigma2, vbTriangulated6, parallax6);
-
+    if (!bLooseCouple)
+    {
+        nGood5 = 0;
+        nGood6 = 0;
+    }
+    
     cout<<"nGood1 = "<<nGood1<<" , nGood2 = "<<nGood2<<endl;
     cout<<"nGood3 = "<<nGood3<<" , nGood4 = "<<nGood4<<endl;
     cout<<"nGood5 = "<<nGood5<<" , nGood6 = "<<nGood6<<endl;
@@ -839,7 +812,7 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
             t2.copyTo(t21);
             isTru = true;
         }
-    }else if(maxGood==nGood5)
+    }else if(maxGood==nGood5 && bLooseCouple)
     {
         if(parallax5>minParallax)
         {
@@ -851,7 +824,7 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
             t1.copyTo(t21);
             isTru = true;
         }
-    }else if(maxGood==nGood6)
+    }else if(maxGood==nGood6 && bLooseCouple)
     {
         if(parallax6>minParallax)
         {

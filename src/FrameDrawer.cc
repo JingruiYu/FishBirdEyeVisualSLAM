@@ -26,6 +26,8 @@
 
 #include<mutex>
 
+extern bool bHaveBird;
+
 namespace ORB_SLAM2
 {
 
@@ -211,14 +213,16 @@ void FrameDrawer::Update(Tracking *pTracker)
     mvbMap = vector<bool>(N,false);
     mbOnlyTracking = pTracker->mbOnlyTracking;
 
-    pTracker->mCurrentFrame.mBirdviewImg.copyTo(mBirdIm);
-    pTracker->mCurrentFrame.mBirdviewMask.copyTo(mBirdMask);
-    mvCurrentBirdKeys = pTracker->mCurrentFrame.mvKeysBird;
+    if (bHaveBird)
+    {
+        pTracker->mCurrentFrame.mBirdviewImg.copyTo(mBirdIm);
+        pTracker->mCurrentFrame.mBirdviewMask.copyTo(mBirdMask);
+        mvCurrentBirdKeys = pTracker->mCurrentFrame.mvKeysBird;
 
-    pTracker->tmpRefFrame->mBirdviewImg.copyTo(RefBirdIm);
-    RefBirdKeys = pTracker->tmpRefFrame->mvKeysBird;
-    vDMatches12 = pTracker->vBirdDMatchs;
-
+        pTracker->tmpRefFrame->mBirdviewImg.copyTo(RefBirdIm);
+        RefBirdKeys = pTracker->tmpRefFrame->mvKeysBird;
+        vDMatches12 = pTracker->vBirdDMatchs;
+    }
 
     if(pTracker->mLastProcessedState==Tracking::NOT_INITIALIZED)
     {

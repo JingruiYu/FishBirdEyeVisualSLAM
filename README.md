@@ -41,3 +41,6 @@ The local Map for bird is created, as well as the local KFs.
 
 v1.2:
 the Bird points are added to both the pose optimization per frame, localMap and localMapping.
+
+v1.3:
+give a unified flag, and test four mode of both bHaveBird and bTightCouple.

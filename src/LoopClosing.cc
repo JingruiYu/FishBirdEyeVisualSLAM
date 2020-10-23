@@ -33,6 +33,7 @@
 #include <unistd.h>
 
 extern bool bTightCouple;
+extern bool bHaveBird;
 
 namespace ORB_SLAM2
 {
@@ -649,7 +650,7 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
     cout << "Starting Global Bundle Adjustment" << endl;
 
     int idx =  mnFullBAIdx;
-    if(mpCurrentKF->mbHaveOdom&&bTightCouple)
+    if(bHaveBird || bTightCouple)
     {
         cout << "\033[31m" << "bTightCouple is true" << "\033[0m" << endl;
         Optimizer::GlobalBundleAdjustemntWithOdom(mpMap,10,&mbStopGBA,nLoopKF,false);

@@ -22,6 +22,8 @@
 #include "Converter.h"
 #include<mutex>
 
+extern bool bHaveBird;
+
 namespace ORB_SLAM2
 {
 
@@ -36,9 +38,12 @@ void Map::AddKeyFrame(KeyFrame *pKF)
     if(pKF->mnId>mnMaxKFid)
         mnMaxKFid=pKF->mnId;
     
-    localKFbird.push_front(pKF);
-    curTw = pKF->GetCameraCenter();
-    UpdateLocalBirdMap();
+    if (bHaveBird)
+    {
+        localKFbird.push_front(pKF);
+        curTw = pKF->GetCameraCenter();
+        UpdateLocalBirdMap();
+    }
 }
 
 void Map::AddMapPoint(MapPoint *pMP)
