@@ -705,8 +705,11 @@ void LocalMapping::KeyFrameCulling()
             }
         }  
 
-        if(nRedundantObservations>0.9*nMPs)
+        if(nRedundantObservations>0.9*nMPs){
+            cout << "\033[1m\033[37m" << "pKF will be culling! " << pKF->mnFrameId << "\033[0m"<< endl;
             pKF->SetBadFlag();
+        }
+            
     }
 }
 

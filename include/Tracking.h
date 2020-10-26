@@ -175,7 +175,9 @@ protected:
 
     bool Relocalization();
     bool ReInitialization();
-
+    void TrackUsingBird();
+    bool BirdNeedKF();
+    
     void UpdateLocalMap();
     void UpdateLocalPoints();
     void UpdateLocalKeyFrames();

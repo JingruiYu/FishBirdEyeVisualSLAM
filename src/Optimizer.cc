@@ -474,7 +474,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
 }
 
 
-int Optimizer::PoseOptimizationWithBird(Frame *pFrame, float wB)
+int Optimizer::PoseOptimizationWithBird(Frame *pFrame, float wB, float wF)
 {
     g2o::SparseOptimizer optimizer;
     g2o::BlockSolver_6_3::LinearSolverType * linearSolver;
@@ -538,7 +538,7 @@ int Optimizer::PoseOptimizationWithBird(Frame *pFrame, float wB)
                 e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(0)));
                 e->setMeasurement(obs);
                 const float invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave];
-                e->setInformation(Eigen::Matrix2d::Identity()*invSigma2);
+                e->setInformation(Eigen::Matrix2d::Identity()*invSigma2*wF);
 
                 if (invSigma2 > infMax)
                     infMax = invSigma2;
@@ -641,7 +641,7 @@ int Optimizer::PoseOptimizationWithBird(Frame *pFrame, float wB)
             if (chi2 < frontErrMin)
                 frontErrMin = chi2;
                 
-            if(chi2>chi2Mono[it])
+            if(chi2>chi2Mono[it]*(wF+1e-9))
             {                
                 pFrame->mvbOutlier[idx]=true;
                 e->setLevel(1);
@@ -1638,7 +1638,7 @@ void Optimizer::GlobalBundleAdjustemntWithOdom(Map* pMap, int nIterations, bool*
 }
 
 void Optimizer::BundleAdjustmentWithOdom(const vector<KeyFrame *> &vpKFs, const vector<MapPoint *> &vpMP, const vector<MapPointBird *> &vpMPB,
-                                 int nIterations, bool* pbStopFlag, const unsigned long nLoopKF, const bool bRobust, const float wB)
+                                 int nIterations, bool* pbStopFlag, const unsigned long nLoopKF, const bool bRobust, const float wF, const float wB, const float wP)
 {    
     vector<bool> vbNotIncludedMP;
     vbNotIncludedMP.resize(vpMP.size());
@@ -1738,7 +1738,7 @@ void Optimizer::BundleAdjustmentWithOdom(const vector<KeyFrame *> &vpKFs, const 
                 
                 e->setMeasurement(obs);
                 const float &invSigma2 = pKF->mvInvLevelSigma2[kpUn.octave];
-                e->setInformation(Eigen::Matrix2d::Identity()*invSigma2);
+                e->setInformation(Eigen::Matrix2d::Identity()*invSigma2*wF);
 
                 if(bRobust)
                 {
@@ -1826,8 +1826,8 @@ void Optimizer::BundleAdjustmentWithOdom(const vector<KeyFrame *> &vpKFs, const 
             e->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
             e->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pKF->mnId)));
             e->setMeasurement(obs);
-            const float &invSigma2 = pKF->mvInvLevelSigma2[pKF->mvKeysBird[mit->second].octave]*wB;
-            e->setInformation(Eigen::Matrix3d::Identity()*invSigma2);
+            const float &invSigma2 = pKF->mvInvLevelSigma2[pKF->mvKeysBird[mit->second].octave];
+            e->setInformation(Eigen::Matrix3d::Identity()*invSigma2*wB);
 
             if (bRobust)
             {
@@ -1871,8 +1871,8 @@ void Optimizer::BundleAdjustmentWithOdom(const vector<KeyFrame *> &vpKFs, const 
 //         e->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(KF1->mnId)));
 //         e->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(KF2->mnId)));
         
-//         Eigen::Matrix3d Info1=Eigen::Matrix3d::Identity()*1e3;
-//         Eigen::Matrix3d Info2=Eigen::Matrix3d::Identity()*1e3;
+//         Eigen::Matrix3d Info1=Eigen::Matrix3d::Identity()*1e3*wP;
+//         Eigen::Matrix3d Info2=Eigen::Matrix3d::Identity()*1e3*wP;
 //         g2o::Matrix6d Info; 
 //         Info<<Info1,Eigen::Matrix3d::Zero(),Eigen::Matrix3d::Zero(),Info2;
 //         e->setInformation(Info);
@@ -1957,7 +1957,7 @@ void Optimizer::BundleAdjustmentWithOdom(const vector<KeyFrame *> &vpKFs, const 
     }    
 }
 
-void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, Map* pMap, const float wB)
+void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, Map* pMap, const float wF, const float wB, const float wP)
 {    
     // Local KeyFrames: First Breath Search from Current Keyframe
     list<KeyFrame*> lLocalKeyFrames;
@@ -2171,7 +2171,7 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
 #endif
                     e->setMeasurement(obs);
                     const float &invSigma2 = pKFi->mvInvLevelSigma2[kpUn.octave];
-                    e->setInformation(Eigen::Matrix2d::Identity()*invSigma2);
+                    e->setInformation(Eigen::Matrix2d::Identity()*invSigma2*wF);
                     // std::cout<<"invSigma2 = "<<invSigma2<<endl;
 
                     g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
@@ -2263,7 +2263,7 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
             // g2o::Matrix6d Info;
             // Info<<Info1,Eigen::Matrix3d::Zero(),Eigen::Matrix3d::Zero(),Info2;
             g2o::Matrix6d Info=g2o::Matrix6d::Identity()*1e4;
-            e->setInformation(Info);
+            e->setInformation(Info*wP);
             
             // g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
             // e->setRobustKernel(rk);
@@ -2305,7 +2305,7 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
     #endif
                     e->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(KF1->mnId)));
                     e->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(KF4->mnId)));
-                    e->setInformation(g2o::Matrix6d::Identity()*1e3);
+                    e->setInformation(g2o::Matrix6d::Identity()*1e3*wP);
                     optimizer.addEdge(e);
                     // cout<<"add 2nd extra pose constraint between KF ("<<KF1->mnId<<" , "<<KF4->mnId<<")"<<endl;
                 }

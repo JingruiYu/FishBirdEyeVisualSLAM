@@ -44,3 +44,6 @@ the Bird points are added to both the pose optimization per frame, localMap and 
 
 v1.3:
 give a unified flag, and test four mode of both bHaveBird and bTightCouple.
+
+v1.4:
+Bird tracking is implemented when the front is lost. Some thing cout out for debug.

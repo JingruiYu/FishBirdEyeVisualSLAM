@@ -44,7 +44,7 @@ public:
                                        const unsigned long nLoopKF=0, const bool bRobust = true);
     void static LocalBundleAdjustment(KeyFrame* pKF, bool *pbStopFlag, Map *pMap);
     int static PoseOptimization(Frame* pFrame);
-    int static PoseOptimizationWithBird(Frame* pFrame, float wB=1);
+    int static PoseOptimizationWithBird(Frame* pFrame, float wB=1.0, float wF=1.0);
 
     int static BirdOptimization(Frame* pFrame, float wB=1);
 
@@ -64,8 +64,8 @@ public:
                                        const unsigned long nLoopKF=0, const bool bRobust = true);
     void static BundleAdjustmentWithOdom(const std::vector<KeyFrame*> &vpKF, const std::vector<MapPoint*> &vpMP, const vector<MapPointBird *> &vpMPB,
                                  int nIterations = 5, bool *pbStopFlag=NULL, const unsigned long nLoopKF=0,
-                                 const bool bRobust = true, const float wB = 3.0);
-    void static LocalBundleAdjustmentWithOdom(KeyFrame* pKF, bool *pbStopFlag, Map *pMap, const float wB = 5.0);
+                                 const bool bRobust = true, const float wF = 1.0, const float wB = 3.0, const float wP = 1.0);
+    void static LocalBundleAdjustmentWithOdom(KeyFrame* pKF, bool *pbStopFlag, Map *pMap, const float wF = 1.0, const float wB = 5.0, const float wP = 1.0);
 };
 
 } //namespace ORB_SLAM

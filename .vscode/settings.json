@@ -57,6 +57,7 @@
         "condition_variable": "cpp",
         "core": "cpp",
         "numericaldiff": "cpp",
-        "sparsecore": "cpp"
+        "sparsecore": "cpp",
+        "random": "cpp"
     }
 }

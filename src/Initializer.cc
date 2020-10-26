@@ -690,11 +690,11 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
         R3=T21.rowRange(0,3).colRange(0,3);
         cv::Mat t_odom=T21.rowRange(0,3).col(3);
         
-        if (norm(t_odom) < 0.2)
-        {
-            cout << " t_odom<0.2 : "<< norm(t_odom) <<endl;
-            return false;
-        }
+        // if (norm(t_odom) < 0.2)
+        // {
+        //     cout << " t_odom<0.2 : "<< norm(t_odom) <<endl;
+        //     return false;
+        // }
         
         double scale=t_odom.dot(t);
         t=t*scale;
