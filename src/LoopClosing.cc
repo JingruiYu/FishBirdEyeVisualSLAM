@@ -404,7 +404,7 @@ bool LoopClosing::ComputeSim3()
 
 void LoopClosing::CorrectLoop()
 {
-    cout << "Loop detected!" << endl;
+    cout << "\033[31m" << "Loop detected, CorrectLoop begin!" << "\033[0m" << endl;
 
     // Send a stop signal to Local Mapping
     // Avoid new keyframes are inserted while correcting the loop
@@ -503,6 +503,24 @@ void LoopClosing::CorrectLoop()
                 pMPi->UpdateNormalAndDepth();
             }
 
+            vector<MapPointBird*> vpMPBsi = pKFi->GetMapPointBirdMatches();
+            for (size_t iMPB = 0; iMPB < vpMPBsi.size(); iMPB++)
+            {
+                MapPointBird* pMPBi = vpMPBsi[iMPB];
+                if (!pMPBi)
+                    continue;
+                if (pMPBi->isBad())
+                    continue;
+                
+                cv::Mat P3Dw = pMPBi->GetWorldPos();
+                Eigen::Matrix<double,3,1> eigP3Dw = Converter::toVector3d(P3Dw);
+                Eigen::Matrix<double,3,1> eigCorrectedP3Dw = g2oCorrectedSwi.map(g2oSiw.map(eigP3Dw));
+
+                cv::Mat cvCorrectedP3Dw = Converter::toCvMat(eigCorrectedP3Dw);
+                pMPBi->SetWorldPos(cvCorrectedP3Dw);
+            }
+            
+
             // Update keyframe pose with corrected Sim3. First transform Sim3 to SE3 (scale translation)
             Eigen::Matrix3d eigR = g2oCorrectedSiw.rotation().toRotationMatrix();
             Eigen::Vector3d eigt = g2oCorrectedSiw.translation();
@@ -566,6 +584,7 @@ void LoopClosing::CorrectLoop()
         }
     }
 
+    cout << "loop closing essentialGraph " << endl;
     // Optimize graph
     Optimizer::OptimizeEssentialGraph(mpMap, mpMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections, mbFixScale);
 
@@ -575,6 +594,7 @@ void LoopClosing::CorrectLoop()
     mpMatchedKF->AddLoopEdge(mpCurrentKF);
     mpCurrentKF->AddLoopEdge(mpMatchedKF);
 
+    cout << "loop closing RunGlobalBundleAdjustment " << endl;
     // Launch a new thread to perform Global Bundle Adjustment
     mbRunningGBA = true;
     mbFinishedGBA = false;
@@ -584,7 +604,9 @@ void LoopClosing::CorrectLoop()
     // Loop closed. Release Local Mapping.
     mpLocalMapper->Release();    
 
-    mLastLoopKFid = mpCurrentKF->mnId;   
+    mLastLoopKFid = mpCurrentKF->mnId;  
+
+    cout << "\033[1m\033[31m" << "Loop detected, CorrectLoop finish!" << "\033[0m" << endl; 
 }
 
 void LoopClosing::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap)
@@ -652,7 +674,7 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
     int idx =  mnFullBAIdx;
     if(bHaveBird || bTightCouple)
     {
-        cout << "\033[31m" << "bTightCouple is true" << "\033[0m" << endl;
+        // cout << "\033[31m" << "bTightCouple is true" << "\033[0m" << endl;
         Optimizer::GlobalBundleAdjustemntWithOdom(mpMap,10,&mbStopGBA,nLoopKF,false);
     }
     else
@@ -673,15 +695,15 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
         if(!mbStopGBA)
         {
             cout << "Global Bundle Adjustment finished" << endl;
-            cout << "Updating map ..." << endl;
+            cout << "Updating map ... 1 " << endl;
             mpLocalMapper->RequestStop();
             // Wait until Local Mapping has effectively stopped
-
+            cout << "Updating map ... 2 " << endl;
             while(!mpLocalMapper->isStopped() && !mpLocalMapper->isFinished())
             {
                 usleep(1000);
             }
-
+            cout << "Updating map ... 3 " << endl;
             // Get Map Mutex
             unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
 
@@ -710,6 +732,8 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
                 pKF->SetPose(pKF->mTcwGBA);
                 lpKFtoCheck.pop_front();
             }
+            
+            cout << "Updating map ... 4 " << endl;
 
             // Correct MapPoints
             const vector<MapPoint*> vpMPs = mpMap->GetAllMapPoints();
@@ -749,6 +773,8 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
             }            
 
             mpMap->InformNewBigChange();
+
+            cout << "in RunGlobalBundleAdjustment " << endl;
 
             mpLocalMapper->Release();
 

@@ -689,11 +689,10 @@ int Optimizer::PoseOptimizationWithBird(Frame *pFrame, float wB, float wF)
         if(optimizer.edges().size()<10)
             break;
     } 
-    cout << "frontErrMax: " << frontErrMax << endl;
-    cout << "frontErrMin: " << frontErrMin << endl; 
 
-    cout << "nInitialCorrespondences: " << nInitialCorrespondences << " -nBad: " << nBad << endl;
-    cout << "nInitialBirdCorrespondences: " << nInitialBirdCorrespondences << " -nBadBird: " << nBadBird << endl;  
+
+    // cout << "nInitialCorrespondences: " << nInitialCorrespondences << " -nBad: " << nBad << endl;
+    // cout << "nInitialBirdCorrespondences: " << nInitialBirdCorrespondences << " -nBadBird: " << nBadBird << endl;  
 
     // Recover optimized pose and return number of inliers
     g2o::VertexSE3Expmap* vSE3_recov = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(0));
@@ -771,7 +770,7 @@ int Optimizer::BirdOptimization(Frame *pFrame, float wB)
     
     }
 
-    cout << "\033[35m" << "In optimization, nInitialBirdCorrespondences: " << nInitialBirdCorrespondences << "\033[0m" << endl;
+    // cout << "\033[35m" << "In optimization, nInitialBirdCorrespondences: " << nInitialBirdCorrespondences << "\033[0m" << endl;
 
     if(nInitialBirdCorrespondences<3)
         return 0;
@@ -829,7 +828,7 @@ int Optimizer::BirdOptimization(Frame *pFrame, float wB)
     cv::Mat pose = Converter::toCvMat(SE3quat_recov);
     pFrame->SetPose(pose);
 
-    cout << "In optimization, nBadBird: " << nBadBird << endl;
+    // cout << "In optimization, nBadBird: " << nBadBird << endl;
 
     return nInitialBirdCorrespondences-nBadBird;
 }
@@ -1368,10 +1367,34 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
         }
     }
 
+    if (optimizer.edges().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "before OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.edges().size() << endl;
+        cout << "LoopConnections.size(): " << LoopConnections.size() << endl;
+        cout << "vpKFs.size(): " << vpKFs.size() << endl; 
+        
+    }
+    
+    if (optimizer.vertices().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "before OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.vertices().size() << endl;
+    }
+
     // Optimize!
-    optimizer.setVerbose(true);
+    optimizer.setVerbose(false);
     optimizer.initializeOptimization();
     optimizer.optimize(20);
+
+    if (optimizer.edges().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "after OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.edges().size() << endl;
+    }
+    
+    if (optimizer.vertices().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "after OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.vertices().size() << endl;
+    }
+    
 
     unique_lock<mutex> lock(pMap->mMutexMapUpdate);
 
@@ -1564,9 +1587,29 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
         vnIndexEdge.push_back(i);
     }
 
+    if (optimizer.edges().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "before OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.edges().size() << endl;
+    }
+    
+    if (optimizer.vertices().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "before OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.vertices().size() << endl;
+    }
+
     // Optimize!
     optimizer.initializeOptimization();
     optimizer.optimize(5);
+
+    if (optimizer.edges().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "after OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.edges().size() << endl;
+    }
+    
+    if (optimizer.vertices().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "after OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.vertices().size() << endl;
+    }
 
     // Check inliers
     int nBad=0;
@@ -1633,7 +1676,7 @@ void Optimizer::GlobalBundleAdjustemntWithOdom(Map* pMap, int nIterations, bool*
     vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     vector<MapPoint*> vpMP = pMap->GetAllMapPoints();
     vector<MapPointBird*> vpMPB = pMap->GetAllMapPointsBird();
-    cout << "\033[31m" << "in GlobalBundleAdjustemntWithOdom, vpMPB.size(): " << vpMPB.size() << "\033[0m" << endl;
+    // cout << "\033[31m" << "in GlobalBundleAdjustemntWithOdom, vpMPB.size(): " << vpMPB.size() << "\033[0m" << endl;
     BundleAdjustmentWithOdom(vpKFs,vpMP,vpMPB,nIterations,pbStopFlag, nLoopKF, bRobust);
 }
 
@@ -1886,10 +1929,31 @@ void Optimizer::BundleAdjustmentWithOdom(const vector<KeyFrame *> &vpKFs, const 
 //         cout<<"add pose constraint between KF ("<<KF1->mnId<<" , "<<KF2->mnId<<")"<<endl;
 //     }
 
+
+    if (optimizer.edges().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "before OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.edges().size() << endl;
+    }
+    
+    if (optimizer.vertices().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "before OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.vertices().size() << endl;
+    }
+
     // Optimize!
-    optimizer.setVerbose(true);
+    optimizer.setVerbose(false);
     optimizer.initializeOptimization();
     optimizer.optimize(nIterations);
+    
+    if (optimizer.edges().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "after OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.edges().size() << endl;
+    }
+    
+    if (optimizer.vertices().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "after OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.vertices().size() << endl;
+    }
 
     // Recover optimized data
 
@@ -2317,8 +2381,28 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
         if(*pbStopFlag)
             return;
 
+    if (optimizer.edges().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "before OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.edges().size() << endl;
+    }
+    
+    if (optimizer.vertices().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "before OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.vertices().size() << endl;
+    }
+
     optimizer.initializeOptimization();
     optimizer.optimize(5);
+
+    if (optimizer.edges().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "after OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.edges().size() << endl;
+    }
+    
+    if (optimizer.vertices().size() < 1)
+    {
+        cout << "\033[1m\033[33m" << "after OptimizeEssentialGraph : optimizer.edges().size() < 2: " << optimizer.vertices().size() << endl;
+    }
 
     bool bDoMore= true;
 

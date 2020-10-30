@@ -21,6 +21,7 @@
 #include "MapDrawer.h"
 #include "MapPoint.h"
 #include "KeyFrame.h"
+#include "Converter.h"
 #include <pangolin/pangolin.h>
 #include <mutex>
 
@@ -136,20 +137,37 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
 
         for(size_t i=0; i<vpKFs.size(); i++)
         {
-            // Covisibility Graph
+            // // Covisibility Graph
             const vector<KeyFrame*> vCovKFs = vpKFs[i]->GetCovisiblesByWeight(100);
+            cout << "vCovKFs: " << vCovKFs.size() << endl;
             cv::Mat Ow = vpKFs[i]->GetCameraCenter();
-            if(!vCovKFs.empty())
-            {
-                for(vector<KeyFrame*>::const_iterator vit=vCovKFs.begin(), vend=vCovKFs.end(); vit!=vend; vit++)
-                {
-                    if((*vit)->mnId<vpKFs[i]->mnId)
-                        continue;
-                    cv::Mat Ow2 = (*vit)->GetCameraCenter();
-                    glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));
-                    glVertex3f(Ow2.at<float>(0),Ow2.at<float>(1),Ow2.at<float>(2));
-                }
-            }
+            // if(!vCovKFs.empty())
+            // {
+            //     for(vector<KeyFrame*>::const_iterator vit=vCovKFs.begin(), vend=vCovKFs.end(); vit!=vend; vit++)
+            //     {
+            //         if((*vit)->mnId<vpKFs[i]->mnId)
+            //             continue;
+            //         cv::Mat Ow2 = (*vit)->GetCameraCenter();
+            //         glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));
+            //         glVertex3f(Ow2.at<float>(0),Ow2.at<float>(1),Ow2.at<float>(2));
+            //     }
+            // }
+
+            // Bird Covisibility
+            // vector<KeyFrame*> vBirdCovKFs = vpKFs[i]->GetBirdConnectedBirdKeyFrames();
+            // cout << "vBirdCovKFs: " << vBirdCovKFs.size() << endl;
+            // cv::Mat OBw = vpKFs[i]->GetCameraCenter();
+            // if(!vBirdCovKFs.empty())
+            // {
+            //     for(vector<KeyFrame*>::const_iterator vit=vBirdCovKFs.begin(), vend=vBirdCovKFs.end(); vit!=vend; vit++)
+            //     {
+            //         if((*vit)->mnId<vpKFs[i]->mnId)
+            //             continue;
+            //         cv::Mat Ow2 = (*vit)->GetCameraCenter();
+            //         glVertex3f(OBw.at<float>(0),OBw.at<float>(1),OBw.at<float>(2));
+            //         glVertex3f(Ow2.at<float>(0),Ow2.at<float>(1),Ow2.at<float>(2));
+            //     }
+            // }
 
             // Spanning tree
             KeyFrame* pParent = vpKFs[i]->GetParent();
@@ -160,16 +178,16 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
                 glVertex3f(Owp.at<float>(0),Owp.at<float>(1),Owp.at<float>(2));
             }
 
-            // Loops
-            set<KeyFrame*> sLoopKFs = vpKFs[i]->GetLoopEdges();
-            for(set<KeyFrame*>::iterator sit=sLoopKFs.begin(), send=sLoopKFs.end(); sit!=send; sit++)
-            {
-                if((*sit)->mnId<vpKFs[i]->mnId)
-                    continue;
-                cv::Mat Owl = (*sit)->GetCameraCenter();
-                glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));
-                glVertex3f(Owl.at<float>(0),Owl.at<float>(1),Owl.at<float>(2));
-            }
+            // // Loops
+            // set<KeyFrame*> sLoopKFs = vpKFs[i]->GetLoopEdges();
+            // for(set<KeyFrame*>::iterator sit=sLoopKFs.begin(), send=sLoopKFs.end(); sit!=send; sit++)
+            // {
+            //     if((*sit)->mnId<vpKFs[i]->mnId)
+            //         continue;
+            //     cv::Mat Owl = (*sit)->GetCameraCenter();
+            //     glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));
+            //     glVertex3f(Owl.at<float>(0),Owl.at<float>(1),Owl.at<float>(2));
+            // }
         }
 
         glEnd();

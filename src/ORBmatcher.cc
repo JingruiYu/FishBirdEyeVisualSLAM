@@ -1761,9 +1761,7 @@ int ORBmatcher::BirdviewMatch(Frame &CurF, const std::vector<cv::KeyPoint> &vRef
 
 
 int ORBmatcher::BirdMapPointMatch(Frame &CurF, const std::vector<MapPointBird*> &vRefMapPointsBird, int windowSize, float filterSize)
-{
-    cout << "\033[36m" << "BirdMapPointMatch" << "\033[0m" << endl;
-    
+{    
     int nmatches = 0;
 
     vector<int> rotHist[HISTO_LENGTH];
@@ -1861,8 +1859,8 @@ int ORBmatcher::BirdMapPointMatch(Frame &CurF, const std::vector<MapPointBird*> 
         }
     }
 
-    cout << " Number of Bird Map Points : " << numMP << endl;
-    cout << " BirdMapPoints Matches :" << nmatches << endl;
+    // cout << " Number of Bird Map Points : " << numMP << endl;
+    // cout << " BirdMapPoints Matches :" << nmatches << endl;
 
     int InlierMatches = 0;
     cv::Mat Tcw2 = CurF.mTcw;
@@ -1896,9 +1894,9 @@ int ORBmatcher::BirdMapPointMatch(Frame &CurF, const std::vector<MapPointBird*> 
         }
     }
 
-    cout << "Map pt matches : minDis : " << minDis << endl;
-    cout << "Map pt matches : maxDis : " << maxDis << endl;
-    cout << " InlierMatches :" << InlierMatches << endl;
+    // cout << "Map pt matches : minDis : " << minDis << endl;
+    // cout << "Map pt matches : maxDis : " << maxDis << endl;
+    // cout << "InlierMatches :" << InlierMatches << endl;
     
     return InlierMatches;
 }

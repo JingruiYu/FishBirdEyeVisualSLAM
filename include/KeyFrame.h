@@ -62,8 +62,10 @@ public:
     // Covisibility graph functions
     void AddConnection(KeyFrame* pKF, const int &weight);
     void EraseConnection(KeyFrame* pKF);
+    void UpdateBirdConnections();
     void UpdateConnections();
     void UpdateBestCovisibles();
+    std::vector<KeyFrame *> GetBirdConnectedBirdKeyFrames();
     std::set<KeyFrame *> GetConnectedKeyFrames();
     std::vector<KeyFrame* > GetVectorCovisibleKeyFrames();
     std::vector<KeyFrame*> GetBestCovisibilityKeyFrames(const int &N);
@@ -230,7 +232,9 @@ protected:
 
     std::map<KeyFrame*,int> mConnectedKeyFrameWeights;
     std::vector<KeyFrame*> mvpOrderedConnectedKeyFrames;
+    std::vector<KeyFrame*> mvpBirdConnectedKeyFrames;
     std::vector<int> mvOrderedWeights;
+    std::vector<int> mvBirdWeights;
 
     // Spanning Tree and Loop Edges
     bool mbFirstConnection;

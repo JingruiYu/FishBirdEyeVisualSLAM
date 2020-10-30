@@ -58,6 +58,7 @@
         "core": "cpp",
         "numericaldiff": "cpp",
         "sparsecore": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "*.txx": "cpp"
     }
 }

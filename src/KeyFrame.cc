@@ -80,9 +80,9 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
                 obserMax = obserNum;
         }
     }
-    cout << "\033[36m" << "addPtBNum: " << addPtBNum << "\033[0m" << endl;
+    // cout << "\033[36m" << "addPtBNum: " << addPtBNum << "\033[0m" << endl;
     
-    cout << "obserMax : " << obserMax << endl;
+    // cout << "obserMax : " << obserMax << endl;
 
     // if (obserMax > 2)
     //     getchar();
@@ -188,6 +188,12 @@ void KeyFrame::UpdateBestCovisibles()
 
     mvpOrderedConnectedKeyFrames = vector<KeyFrame*>(lKFs.begin(),lKFs.end());
     mvOrderedWeights = vector<int>(lWs.begin(), lWs.end());    
+}
+
+vector<KeyFrame*> KeyFrame::GetBirdConnectedBirdKeyFrames()
+{
+    unique_lock<mutex> lock(mMutexConnections);
+    return mvpBirdConnectedKeyFrames;
 }
 
 set<KeyFrame*> KeyFrame::GetConnectedKeyFrames()
@@ -359,6 +365,72 @@ MapPointBird* KeyFrame::GetMapPointBird(const size_t &idx)
     return mvpMapPointsBird[idx];
 }
 
+void KeyFrame::UpdateBirdConnections()
+{
+    map<KeyFrame*, int> KFcounter;
+    vector<MapPointBird*> vpMPB = mvpMapPointsBird;
+
+    for (vector<MapPointBird*>::iterator vit=vpMPB.begin(), vend=vpMPB.end(); vit!=vend; vit++)
+    {
+        MapPointBird* pMPB = *vit;
+
+        if (!pMPB || pMPB->isBad())
+            continue;
+        
+        map<KeyFrame*,size_t> observations = pMPB->GetObservations();
+
+        for (map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
+        {
+            if(mit->first->mnId == mnId)
+                continue;
+            KFcounter[mit->first]++;
+        }
+    }
+
+    if(KFcounter.empty())
+        return;
+    
+    int th = 2;
+    int sumObs = 0;
+    vector<pair<int,KeyFrame*> > vPairs;
+    vPairs.reserve(KFcounter.size());
+    for (map<KeyFrame*,int>::iterator mit=KFcounter.begin(), mend=KFcounter.end(); mit!=mend; mit++)
+    {
+        sumObs += mit->second;
+
+        if(mit->second>=th)
+            vPairs.push_back(make_pair(mit->second,mit->first));
+    }
+    sumObs = sumObs / KFcounter.size();
+    
+    // if (sumObs > 5 || sumObs <2)
+    //     cout << "\033[1m\033[37m" << "bird observations th mean : " << sumObs << "\033[0m" << endl;
+
+    sort(vPairs.begin(),vPairs.end());
+    list<KeyFrame*> lKFs;
+    list<int> lWs;
+    for(size_t i=0; i<vPairs.size();i++)
+    {
+        lKFs.push_front(vPairs[i].second);
+        lWs.push_front(vPairs[i].first);
+    }
+
+    {
+        unique_lock<mutex> lockCon(mMutexConnections);
+
+        mvpBirdConnectedKeyFrames = vector<KeyFrame*>(lKFs.begin(),lKFs.end());
+        mvOrderedWeights = vector<int>(lWs.begin(), lWs.end());
+
+        if (!mpParent || mbFirstConnection)
+        {
+            mpParent = mvpBirdConnectedKeyFrames.front();
+            mpParent->AddChild(this);
+            mbFirstConnection = false;
+        }
+        
+    }
+}
+
 void KeyFrame::UpdateConnections()
 {
     map<KeyFrame*,int> KFcounter;
@@ -449,6 +521,8 @@ void KeyFrame::UpdateConnections()
         }
 
     }
+
+    UpdateBirdConnections();
 }
 
 void KeyFrame::AddChild(KeyFrame *pKF)
@@ -615,6 +689,7 @@ void KeyFrame::SetBadFlag()
 
     mpMap->EraseKeyFrame(this);
     mpKeyFrameDB->erase(this);
+    // cout << " KeyFrame::SetBadFlag " << " KFId: " << this->mnFrameId << "\033[0m"<< endl;
 }
 
 bool KeyFrame::isBad()

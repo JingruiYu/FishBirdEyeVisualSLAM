@@ -138,6 +138,8 @@ bool Initializer::ReInitialize(const Frame &ReInitFrame, const Frame &CurrentFra
 {
     // Fill structures with current keypoints and matches with reference frame
     // Reference Frame: 1, Current Frame: 2
+    cout << "ReInitFrame.mnId : " << ReInitFrame.mnId << " -CurrentFrame.mnId : " << CurrentFrame.mnId <<endl;
+
     mvKeys2 = CurrentFrame.mvKeysUn;
     /********************* Modified Here *********************/
     mRefFrame = Frame(ReInitFrame);
@@ -576,8 +578,8 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
         double scale=t_odom.dot(t);
         t=t*scale;
         cout<<"scale = "<<scale<<" , cos(theta) = "<<scale/cv::norm(t_odom)<<endl;
-        cout<<"R1/R3 = "<<0.5*(cv::trace(R1.t()*R3)[0]-1)<<endl;
-        cout<<"R2/R3 = "<<0.5*(cv::trace(R2.t()*R3)[0]-1)<<endl;
+        // cout<<"R1/R3 = "<<0.5*(cv::trace(R1.t()*R3)[0]-1)<<endl;
+        // cout<<"R2/R3 = "<<0.5*(cv::trace(R2.t()*R3)[0]-1)<<endl;
     }
 
     cv::Mat t1=t;
@@ -699,8 +701,6 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
         double scale=t_odom.dot(t);
         t=t*scale;
         cout<<"scale = "<<scale<<" , cos(theta) = "<<scale/cv::norm(t_odom)<<endl;
-        cout<<"R1/R3 = "<<0.5*(cv::trace(R1.t()*R3)[0]-1)<<endl;
-        cout<<"R2/R3 = "<<0.5*(cv::trace(R2.t()*R3)[0]-1)<<endl;
     }
 
     cv::Mat t1=t;
@@ -711,21 +711,84 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
     vector<bool> vbTriangulated1,vbTriangulated2,vbTriangulated3, vbTriangulated4, vbTriangulated5, vbTriangulated6;
     float parallax1,parallax2, parallax3, parallax4, parallax5, parallax6;
 
+    if (bLooseCouple)
+    {
+        int nGood5 = ReCheckRT(R3,t1,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D5, 4.0*mSigma2, vbTriangulated5, parallax5);
+        int nGood6 = ReCheckRT(R3,t2,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D6, 4.0*mSigma2, vbTriangulated6, parallax6);
+
+        int nMinGood = max(static_cast<int>(0.9*N),minTriangulated);
+
+        int maxGood = max(nGood5,nGood6);
+        int nsimilarBird = 0;
+        if(nGood5>0.7*maxGood)
+            nsimilarBird++;
+        if(nGood6>0.7*maxGood)
+            nsimilarBird++;
+
+        if(maxGood<nMinGood || nsimilarBird>1)
+        {
+            cout << "ReInitconstructF wrong: " << endl;
+            cout << "max(maxGood,maxGoodBird): " << maxGood << " < nMinGood? " << nMinGood << endl;
+            cout << "nsimilarBird: " << nsimilarBird << " >1 ? " << endl;
+            cout << " nGood5: " << nGood5 << " nGood6: " << nGood6 << endl; 
+
+            return false;
+        }
+
+        bool isTru = false;
+        if(maxGood==nGood5)
+        {
+            if(parallax5>minParallax)
+            {
+                cout<<"maxGood = maxGood5."<<endl;
+                vP3D = vP3D5;
+                vbTriangulated = vbTriangulated5;
+
+                R3.copyTo(R21);
+                t1.copyTo(t21);
+                isTru = true;
+            }
+            else
+            {
+                cout << "parallax5:" << parallax5 << " > minParallax ? " << minParallax << endl;
+            }
+            
+        }else if(maxGood==nGood6)
+        {
+            if(parallax6>minParallax)
+            {
+                cout<<"maxGood = maxGood6."<<endl;
+                vP3D = vP3D6;
+                vbTriangulated = vbTriangulated6;
+
+                R3.copyTo(R21);
+                t2.copyTo(t21);
+                isTru = true;
+            }
+            else
+            {
+                cout << "parallax6:" << parallax6 << " > minParallax ? " << minParallax << endl;
+            }
+        }
+    
+        return isTru;
+    }
+    
     int nGood1 = ReCheckRT(R1,t1,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D1, 4.0*mSigma2, vbTriangulated1, parallax1);
     int nGood2 = ReCheckRT(R2,t1,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D2, 4.0*mSigma2, vbTriangulated2, parallax2);
     int nGood3 = ReCheckRT(R1,t2,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D3, 4.0*mSigma2, vbTriangulated3, parallax3);
     int nGood4 = ReCheckRT(R2,t2,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D4, 4.0*mSigma2, vbTriangulated4, parallax4);
-    int nGood5 = ReCheckRT(R3,t1,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D5, 4.0*mSigma2, vbTriangulated5, parallax5);
-    int nGood6 = ReCheckRT(R3,t2,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D6, 4.0*mSigma2, vbTriangulated6, parallax6);
-    if (!bLooseCouple)
-    {
-        nGood5 = 0;
-        nGood6 = 0;
-    }
+    // int nGood5 = ReCheckRT(R3,t1,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D5, 4.0*mSigma2, vbTriangulated5, parallax5);
+    // int nGood6 = ReCheckRT(R3,t2,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D6, 4.0*mSigma2, vbTriangulated6, parallax6);
+    // if (!bLooseCouple)
+    // {
+    //     nGood5 = 0;
+    //     nGood6 = 0;
+    // }
     
-    cout<<"nGood1 = "<<nGood1<<" , nGood2 = "<<nGood2<<endl;
-    cout<<"nGood3 = "<<nGood3<<" , nGood4 = "<<nGood4<<endl;
-    cout<<"nGood5 = "<<nGood5<<" , nGood6 = "<<nGood6<<endl;
+    // cout<<"nGood1 = "<<nGood1<<" , nGood2 = "<<nGood2<<endl;
+    // cout<<"nGood3 = "<<nGood3<<" , nGood4 = "<<nGood4<<endl;
+    // cout<<"nGood5 = "<<nGood5<<" , nGood6 = "<<nGood6<<endl;
 
     int maxGood = max(nGood1,max(nGood2,max(nGood3,nGood4)));
     // int maxGood = max(nGood1, max(nGood2, max(nGood3, max(nGood4, max(nGood5, nGood6)))));
@@ -745,22 +808,32 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
     if(nGood4>0.7*maxGood)
         nsimilar++;
 
-    int maxGoodBird = max(nGood5,nGood6);
-    int nsimilarBird = 0;
-    if(nGood5>0.7*maxGoodBird)
-        nsimilarBird++;
-    if(nGood6>0.7*maxGoodBird)
-        nsimilarBird++;
+    // int maxGoodBird = max(nGood5,nGood6);
+    // int nsimilarBird = 0;
+    // if(nGood5>0.7*maxGoodBird)
+    //     nsimilarBird++;
+    // if(nGood6>0.7*maxGoodBird)
+    //     nsimilarBird++;
 
     // If there is not a clear winner or not enough triangulated points reject initialization
-    if(max(maxGood,maxGoodBird)<nMinGood || nsimilar>1||nsimilarBird>1)
+    // if(max(maxGood,maxGoodBird)<nMinGood || nsimilar>1||nsimilarBird>1)
+    // {
+    //     cout << "ReInitconstructF wrong: " << endl;
+    //     cout << "max(maxGood,maxGoodBird): " << max(maxGood,maxGoodBird) << " < nMinGood? " << nMinGood << endl;
+    //     cout << "nsimilar: " << nsimilar << " >1 ? " << endl;
+    //     cout << "nsimilarBird: " << nsimilarBird << " >1 ? " << endl;
+    //     cout << "nGood1: " << nGood1 << " nGood2: " << nGood2 << " nGood3: " << nGood3 << " nGood4: " << nGood4 << " nGood5: " << nGood5 << " nGood6: " << nGood6 << endl; 
+
+    //     return false;
+    // }
+    // maxGood = max(maxGood,maxGoodBird);
+
+    if(maxGood<nMinGood || nsimilar>1)
     {
-        cout << "maxGood wrong: " << endl;
+        cout << "maxGood: " << maxGood << " < nMinGood? " << nMinGood << endl;
+        cout << "nsimilar: " << nsimilar << " >1 ? " << endl;
         return false;
     }
-
-
-    maxGood = max(maxGood,maxGoodBird);
 
     bool isTru = false;
     // If best reconstruction has enough parallax initialize
@@ -776,6 +849,11 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
             t1.copyTo(t21);
             isTru = true;
         }
+        else
+        {
+            cout << "parallax1:" << parallax1 << " > minParallax ? " << minParallax << endl;
+            cout << "now the point size is : " << vP3D1.size() << " - " << " all the matches : " << vbMatchesInliers.size() << endl;            
+        }
     }else if(maxGood==nGood2)
     {
         if(parallax2>minParallax)
@@ -787,6 +865,11 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
             R2.copyTo(R21);
             t1.copyTo(t21);
             isTru = true;
+        }
+        else
+        {
+            cout << "parallax2:" << parallax2 << " > minParallax ? " << minParallax << endl;
+            cout << "now the point size is : " << vP3D2.size() << " - " << " all the matches : " << vbMatchesInliers.size() << endl;            
         }
     }else if(maxGood==nGood3)
     {
@@ -800,6 +883,11 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
             t2.copyTo(t21);
             isTru = true;
         }
+        else
+        {
+            cout << "parallax3:" << parallax3 << " > minParallax ? " << minParallax << endl;
+            cout << "now the point size is : " << vP3D3.size() << " - " << " all the matches : " << vbMatchesInliers.size() << endl;            
+        }
     }else if(maxGood==nGood4)
     {
         if(parallax4>minParallax)
@@ -812,32 +900,48 @@ bool Initializer::ReInitconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21,
             t2.copyTo(t21);
             isTru = true;
         }
-    }else if(maxGood==nGood5 && bLooseCouple)
-    {
-        if(parallax5>minParallax)
+        else
         {
-            cout<<"maxGood = maxGood5."<<endl;
-            vP3D = vP3D5;
-            vbTriangulated = vbTriangulated5;
-
-            R3.copyTo(R21);
-            t1.copyTo(t21);
-            isTru = true;
+            cout << "parallax4:" << parallax4 << " > minParallax ? " << minParallax << endl;
+            cout << "now the point size is : " << vP3D4.size() << " - " << " all the matches : " << vbMatchesInliers.size() << endl;            
         }
-    }else if(maxGood==nGood6 && bLooseCouple)
-    {
-        if(parallax6>minParallax)
-        {
-            cout<<"maxGood = maxGood6."<<endl;
-            vP3D = vP3D6;
-            vbTriangulated = vbTriangulated6;
-
-            R3.copyTo(R21);
-            t2.copyTo(t21);
-            isTru = true;
-        }
+        
     }
+    // else if(maxGood==nGood5 && bLooseCouple)
+    // {
+    //     if(parallax5>minParallax)
+    //     {
+    //         cout<<"maxGood = maxGood5."<<endl;
+    //         vP3D = vP3D5;
+    //         vbTriangulated = vbTriangulated5;
 
+    //         R3.copyTo(R21);
+    //         t1.copyTo(t21);
+    //         isTru = true;
+    //     }
+    //     else
+    //     {
+    //         cout << "parallax5:" << parallax5 << " > minParallax ? " << minParallax << endl;
+    //     }
+        
+    // }else if(maxGood==nGood6 && bLooseCouple)
+    // {
+    //     if(parallax6>minParallax)
+    //     {
+    //         cout<<"maxGood = maxGood6."<<endl;
+    //         vP3D = vP3D6;
+    //         vbTriangulated = vbTriangulated6;
+
+    //         R3.copyTo(R21);
+    //         t2.copyTo(t21);
+    //         isTru = true;
+    //     }
+    //     else
+    //     {
+    //         cout << "parallax6:" << parallax6 << " > minParallax ? " << minParallax << endl;
+    //     }
+    // }
+    
     return isTru;
 }
 

@@ -47,3 +47,6 @@ give a unified flag, and test four mode of both bHaveBird and bTightCouple.
 
 v1.4:
 Bird tracking is implemented when the front is lost. Some thing cout out for debug.
+
+v1.5:
+wait for change parameters, and test the lost reInit performance.

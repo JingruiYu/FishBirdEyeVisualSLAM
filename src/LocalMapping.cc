@@ -86,7 +86,7 @@ void LocalMapping::Run()
                 {
                     if(bHaveBird || bTightCouple)
                     {
-                        cout << "bTightCouple is true" << endl;
+                        // cout << "bTightCouple is true" << endl;
 
                         Optimizer::LocalBundleAdjustmentWithOdom(mpCurrentKeyFrame,&mbAbortBA, mpMap);
                     }
@@ -103,6 +103,7 @@ void LocalMapping::Run()
         }
         else if(Stop())
         {
+            cout << "local Mapping stop? " << endl;
             // Safe area to stop
             while(isStopped() && !CheckFinish())
             {
@@ -110,6 +111,8 @@ void LocalMapping::Run()
             }
             if(CheckFinish())
                 break;
+            
+            cout << "local Mapping stopped. " << endl;
         }
 
         ResetIfRequested();
@@ -706,7 +709,13 @@ void LocalMapping::KeyFrameCulling()
         }  
 
         if(nRedundantObservations>0.9*nMPs){
-            cout << "\033[1m\033[37m" << "pKF will be culling! " << pKF->mnFrameId << "\033[0m"<< endl;
+
+            if(pKF->GetMapPointsInlierNum() < 20){
+                cout << "\033[1m\033[37m" << "pKF will be culling! " << pKF->mnFrameId << "\033[0m"<< endl;
+                cout << "pKF mp number: " << pKF->GetMapPointsInlierNum() << endl;
+                cout << "nRedundantObservations>0.9*nMPs ? : " << nRedundantObservations << " - " << nMPs << endl;
+            }
+            
             pKF->SetBadFlag();
         }
             

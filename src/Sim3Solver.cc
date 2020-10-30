@@ -189,14 +189,38 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
             mBestTranslation = mt12i.clone();
             mBestScale = ms12i;
 
-            if(mnInliersi>mRansacMinInliers)
+            if(mnInliersi>mRansacMinInliers || (mnInliersi > 15 && mpKF1->mnFrameId > 1126 && mpKF1->mnFrameId < 1136 ) )
             {
                 nInliers = mnInliersi;
                 for(int i=0; i<N; i++)
                     if(mvbInliersi[i])
                         vbInliers[mvnIndices1[i]] = true;
+                
+                if (mpKF1->mnFrameId > 1115)
+                {
+                    cout << "\033[1m\033[32m" << endl;
+                    cout << "Two KF1 frameId is : " << mpKF1->mnFrameId << " - " << mpKF2->mnFrameId << endl;
+                    cout << "cout the reason that gScm empty." << endl;
+                    cout << "is mnInliersi: " << mnInliersi << " >mRansacMinInliers ? " << mRansacMinInliers << " -mnIterations" << mnIterations << endl;
+                    cout << "mvX3Dc1.size(): " << mvX3Dc1.size() << " -mvX3Dc2.size() " << mvX3Dc2.size() << endl;
+                    cout << "\033[0m" << endl;
+                }
+
                 return mBestT12;
             }
+            else
+            {
+                if (mpKF1->mnFrameId > 1115)
+                {
+                    cout << "\033[1m\033[37m" << endl;
+                    cout << "Two KF1 frameId is : " << mpKF1->mnFrameId << " - " << mpKF2->mnFrameId << endl;
+                    cout << "cout the reason that gScm empty." << endl;
+                    cout << "is mnInliersi: " << mnInliersi << " >mRansacMinInliers ? " << mRansacMinInliers << " -mnIterations" << mnIterations << endl;
+                    cout << "mvX3Dc1.size(): " << mvX3Dc1.size() << " -mvX3Dc2.size() " << mvX3Dc2.size() << endl;
+                    cout << "\033[0m" << endl;
+                }
+            }
+            
         }
     }
 

@@ -142,14 +142,14 @@ void Map::UpdateLocalBirdMap()
         }
     }
 
-    cout << "\033[33m" << "localMapPointBirds.size(): " << localMapPointBirds.size() << "\033[0m" << endl;
+    // cout << "\033[33m" << "localMapPointBirds.size(): " << localMapPointBirds.size() << "\033[0m" << endl;
     
-    for (auto ite = localKFbird.begin(), lend = localKFbird.end(); ite != lend; ite++)
-    {
-        KeyFrame* tmKF = *ite;
-        cout <<"id: " << tmKF->mnFrameId << endl;
-    }
-    cout << "localKF.size() after: " << localKFbird.size() << endl;
+    // for (auto ite = localKFbird.begin(), lend = localKFbird.end(); ite != lend; ite++)
+    // {
+    //     KeyFrame* tmKF = *ite;
+    //     cout <<"id: " << tmKF->mnFrameId << endl;
+    // }
+    // cout << "localKF.size() after: " << localKFbird.size() << endl;
 }
 
 vector<KeyFrame*> Map::GetAllKeyFrames()
