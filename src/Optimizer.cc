@@ -1181,7 +1181,8 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
 
     const vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     const vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
-
+    const vector<MapPointBird*> vpMPBs = pMap->GetAllMapPointsBird();
+    
     const unsigned int nMaxKFid = pMap->GetMaxKFid();
 
     vector<g2o::Sim3,Eigen::aligned_allocator<g2o::Sim3> > vScw(nMaxKFid+1);
