@@ -511,13 +511,17 @@ void LoopClosing::CorrectLoop()
                     continue;
                 if (pMPBi->isBad())
                     continue;
-                
+                if (pMPBi->mnCorrectedByKF==mpCurrentKF->mnId)
+                    continue;
+
+
                 cv::Mat P3Dw = pMPBi->GetWorldPos();
                 Eigen::Matrix<double,3,1> eigP3Dw = Converter::toVector3d(P3Dw);
                 Eigen::Matrix<double,3,1> eigCorrectedP3Dw = g2oCorrectedSwi.map(g2oSiw.map(eigP3Dw));
 
                 cv::Mat cvCorrectedP3Dw = Converter::toCvMat(eigCorrectedP3Dw);
                 pMPBi->SetWorldPos(cvCorrectedP3Dw);
+                pMPBi->mnCorrectedByKF==mpCurrentKF->mnId
             }
             
 

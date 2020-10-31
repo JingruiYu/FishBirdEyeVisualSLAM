@@ -2094,7 +2094,11 @@ bool Tracking::BirdNeedKF()
     int numPt = mCurrentFrame.GetBirdMapPointsNum();
     
     if (idDis || tDis && numPt > 10)
+    {
+        cout << "\033[1m\033[33m" << "bird need KF, pKF->mnId: " << pKF->mnId << ",pKF->mnFrameId: " << pKF->mnFrameId << "\033[0m" << endl;
         return true;
+    }
+        
     
     return false;
 }

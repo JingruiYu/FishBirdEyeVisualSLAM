@@ -181,6 +181,12 @@ void LocalMapping::ProcessNewKeyFrame()
     // Update links in the Covisibility Graph
     mpCurrentKeyFrame->UpdateConnections();
 
+    KeyFrame* pParentKF = mpCurrentKeyFrame->GetParent();
+    if (!pParentKF)
+    {
+        cout << "\033[1m\033[33m" << "In LoocalMapping, there are KF without parent, pKF->mnId: " << mpCurrentKeyFrame->mnId << ",pKF->mnFrameId: " << mpCurrentKeyFrame->mnFrameId << "\033[0m" << endl;
+    }
+    
     // Insert Keyframe in Map
     mpMap->AddKeyFrame(mpCurrentKeyFrame);
 }
