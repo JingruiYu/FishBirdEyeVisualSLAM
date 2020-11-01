@@ -46,6 +46,7 @@ void MapDrawer::DrawMapPoints()
 {
     const vector<MapPoint*> &vpMPs = mpMap->GetAllMapPoints();
     const vector<MapPoint*> &vpRefMPs = mpMap->GetReferenceMapPoints();
+    const vector<MapPointBird*> &vpMPBs = mpMap->GetAllMapPointsBird();
 
     set<MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
 
@@ -78,6 +79,19 @@ void MapDrawer::DrawMapPoints()
 
     }
 
+    glEnd();
+
+    glPointSize(mPointSize);
+    glBegin(GL_POINTS);
+    glColor3f(0.0,1.0,0.0);
+
+    for(size_t i=0, iend=vpMPBs.size(); i<iend;i++)
+    {
+        if(vpMPBs[i]->isBad())
+            continue;
+        cv::Mat pos = vpMPBs[i]->GetWorldPos();
+        glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+    }
     glEnd();
 }
 
@@ -139,7 +153,7 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
         {
             // // Covisibility Graph
             const vector<KeyFrame*> vCovKFs = vpKFs[i]->GetCovisiblesByWeight(100);
-            cout << "vCovKFs: " << vCovKFs.size() << endl;
+            // cout << "vCovKFs: " << vCovKFs.size() << endl;
             cv::Mat Ow = vpKFs[i]->GetCameraCenter();
             // if(!vCovKFs.empty())
             // {

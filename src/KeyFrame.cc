@@ -370,6 +370,7 @@ void KeyFrame::UpdateBirdConnections()
     map<KeyFrame*, int> KFcounter;
     vector<MapPointBird*> vpMPB = mvpMapPointsBird;
 
+    int pMPBnum = 0;
     for (vector<MapPointBird*>::iterator vit=vpMPB.begin(), vend=vpMPB.end(); vit!=vend; vit++)
     {
         MapPointBird* pMPB = *vit;
@@ -377,6 +378,8 @@ void KeyFrame::UpdateBirdConnections()
         if (!pMPB || pMPB->isBad())
             continue;
         
+        pMPBnum++;
+
         map<KeyFrame*,size_t> observations = pMPB->GetObservations();
 
         for (map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
@@ -387,8 +390,17 @@ void KeyFrame::UpdateBirdConnections()
         }
     }
 
+    if (!mpParent)
+    {
+        cout << "go int Bird connections? 2 - ID" << this->mnFrameId << endl;
+    }
+
     if(KFcounter.empty())
+    {
+        cout << "Bird KFcounter.empty() : ID:" << this->mnId << " FrameId:" << this->mnFrameId << " ,pMPBnum: " << pMPBnum << endl;
         return;
+    }
+        
     
     int th = 2;
     int sumObs = 0;
@@ -423,9 +435,19 @@ void KeyFrame::UpdateBirdConnections()
 
         if (!mpParent || mbFirstConnection)
         {
-            mpParent = mvpBirdConnectedKeyFrames.front();
-            mpParent->AddChild(this);
-            mbFirstConnection = false;
+            if (!mvpBirdConnectedKeyFrames.empty())
+            {
+                mpParent = mvpBirdConnectedKeyFrames.front();
+                mpParent->AddChild(this);
+                mbFirstConnection = false;
+
+                cout << "\033[1m\033[33m" << "bird mpParent is not empty. The frame ID is " << this->mnFrameId << "\033[0m" << endl;
+            
+            }
+            else
+            {
+                cout << "\033[1m\033[33m" << "mpParent from front is empty, while bird mpParent is also empty. The frame ID is " << this->mnFrameId << "\033[0m" << endl;
+            }
         }
         
     }
@@ -466,7 +488,12 @@ void KeyFrame::UpdateConnections()
 
     // This should not happen
     if(KFcounter.empty())
+    {
+        cout << "Front KFcounter.empty() : " << this->mnFrameId << endl;
+        UpdateBirdConnections();
         return;
+    }
+        
 
     //If the counter is greater than threshold add connection
     //In case no keyframe counter is over threshold add the one with maximum counter
@@ -522,6 +549,11 @@ void KeyFrame::UpdateConnections()
 
     }
 
+    if (!mpParent)
+    {
+        cout << "go int Bird connections? - ID" << this->mnFrameId << endl;
+    }
+    
     UpdateBirdConnections();
 }
 

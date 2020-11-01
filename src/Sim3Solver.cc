@@ -198,7 +198,7 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
                 
                 if (mpKF1->mnFrameId > 1115)
                 {
-                    cout << "\033[1m\033[32m" << endl;
+                    // cout << "\033[1m\033[32m" << endl;
                     cout << "Two KF1 frameId is : " << mpKF1->mnFrameId << " - " << mpKF2->mnFrameId << endl;
                     cout << "cout the reason that gScm empty." << endl;
                     cout << "is mnInliersi: " << mnInliersi << " >mRansacMinInliers ? " << mRansacMinInliers << " -mnIterations" << mnIterations << endl;
@@ -212,7 +212,7 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
             {
                 if (mpKF1->mnFrameId > 1115)
                 {
-                    cout << "\033[1m\033[37m" << endl;
+                    // cout << "\033[1m\033[37m" << endl;
                     cout << "Two KF1 frameId is : " << mpKF1->mnFrameId << " - " << mpKF2->mnFrameId << endl;
                     cout << "cout the reason that gScm empty." << endl;
                     cout << "is mnInliersi: " << mnInliersi << " >mRansacMinInliers ? " << mRansacMinInliers << " -mnIterations" << mnIterations << endl;

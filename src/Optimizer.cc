@@ -1168,6 +1168,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
                                        const LoopClosing::KeyFrameAndPose &CorrectedSim3,
                                        const map<KeyFrame *, set<KeyFrame *> > &LoopConnections, const bool &bFixScale)
 {
+    cout << "OptimizeEssentialGraph" << endl;
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
     optimizer.setVerbose(false);
@@ -1181,6 +1182,19 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
 
     const vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     const vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
+    const vector<MapPointBird*> vpMPBs = pMap->GetAllMapPointsBird();
+
+    int lessObsPB = 0;
+    for (size_t i = 0; i < vpMPBs.size(); i++)
+    {
+        MapPointBird* pMPB = vpMPBs[i];
+        if(pMPB->Observations()<2)
+            lessObsPB++;
+    }
+
+    cout << "\033[1m\033[33m" << "all MPB size is " << vpMPBs.size() << " , the number of One obser is : " << lessObsPB << "\033[0m" << endl;
+    
+
 
     const unsigned int nMaxKFid = pMap->GetMaxKFid();
 
@@ -1306,6 +1320,11 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
             e->information() = matLambda;
             optimizer.addEdge(e);
         }
+        else
+        {
+            cout << "\033[1m\033[33m" << "there are KF without parent, pKF->mnId: " << pKF->mnId << ",pKF->mnFrameId: " << pKF->mnFrameId << "\033[0m" << endl;
+        }
+        
 
         // Loop edges
         const set<KeyFrame*> sLoopEdges = pKF->GetLoopEdges();
@@ -1340,6 +1359,40 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
             KeyFrame* pKFn = *vit;
             if(pKFn && pKFn!=pParentKF && !pKF->hasChild(pKFn) && !sLoopEdges.count(pKFn))
             {
+                if(!pKFn->isBad() && pKFn->mnId<pKF->mnId)
+                {
+                    if(sInsertedEdges.count(make_pair(min(pKF->mnId,pKFn->mnId),max(pKF->mnId,pKFn->mnId))))
+                        continue;
+
+                    g2o::Sim3 Snw;
+
+                    LoopClosing::KeyFrameAndPose::const_iterator itn = NonCorrectedSim3.find(pKFn);
+
+                    if(itn!=NonCorrectedSim3.end())
+                        Snw = itn->second;
+                    else
+                        Snw = vScw[pKFn->mnId];
+
+                    g2o::Sim3 Sni = Snw * Swi;
+
+                    g2o::EdgeSim3* en = new g2o::EdgeSim3();
+                    en->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pKFn->mnId)));
+                    en->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(nIDi)));
+                    en->setMeasurement(Sni);
+                    en->information() = matLambda;
+                    optimizer.addEdge(en);
+                }
+            }
+        }
+
+        if (vpConnectedKFs.empty())
+        {
+            cout << "vpConnectedKFs.empty() exist." << endl;
+            const vector<KeyFrame*> vpConnectedBirdKFs = pKF->GetBirdConnectedBirdKeyFrames();
+            cout << "vpConnectedBirdKFs.empty() size is: " << vpConnectedBirdKFs.size() << endl;
+            for (vector<KeyFrame*>::const_iterator vit=vpConnectedBirdKFs.begin(); vit!=vpConnectedBirdKFs.end(); vit++)
+            {
+                KeyFrame* pKFn = *vit;
                 if(!pKFn->isBad() && pKFn->mnId<pKF->mnId)
                 {
                     if(sInsertedEdges.count(make_pair(min(pKF->mnId,pKFn->mnId),max(pKF->mnId,pKFn->mnId))))
@@ -1420,6 +1473,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
     }
 
     // Correct points. Transform to "non-optimized" reference keyframe pose and transform back with optimized pose
+    int mpRfKF = 0;
     for(size_t i=0, iend=vpMPs.size(); i<iend; i++)
     {
         MapPoint* pMP = vpMPs[i];
@@ -1435,6 +1489,9 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
         else
         {
             KeyFrame* pRefKF = pMP->GetReferenceKeyFrame();
+            if (!pRefKF)
+                mpRfKF++;
+            
             nIDr = pRefKF->mnId;
         }
 
@@ -1451,6 +1508,51 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
 
         pMP->UpdateNormalAndDepth();
     }
+    cout << "mpRfKF empty number: " << mpRfKF << endl;
+
+    int mpRfBKF=0;
+    int RfBKFNe=0;
+    for (size_t i = 0; i < vpMPBs.size(); i++)
+    {
+        MapPointBird* pMPB = vpMPBs[i];
+
+        if (pMPB->isBad())
+            continue;
+
+        int nIDr;
+        if(pMPB->mnCorrectedByKF==pCurKF->mnId) 
+        {
+            nIDr = pMPB->mnCorrectedReference;
+        }
+        else
+        {
+            KeyFrame* pRefKF = pMPB->GetReferenceKeyFrame();
+            if (!pRefKF)
+            {
+                mpRfBKF++;
+                continue;
+            }
+            else
+            {
+                RfBKFNe++;
+            }
+            
+            nIDr = pRefKF->mnId;
+        }
+
+
+        g2o::Sim3 Srw = vScw[nIDr];
+        g2o::Sim3 correctedSwr = vCorrectedSwc[nIDr];
+
+        cv::Mat P3Dw = pMPB->GetWorldPos();
+        Eigen::Matrix<double,3,1> eigP3Dw = Converter::toVector3d(P3Dw);
+        Eigen::Matrix<double,3,1> eigCorrectedP3Dw = correctedSwr.map(Srw.map(eigP3Dw));
+
+        cv::Mat cvCorrectedP3Dw = Converter::toCvMat(eigCorrectedP3Dw);
+        pMPB->SetWorldPos(cvCorrectedP3Dw);       
+    }
+    cout << "mpRfBKF empty number: " << mpRfBKF << ", RfBKFNe not empty number: " << RfBKFNe << endl;
+    
 }
 
 int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &vpMatches1, g2o::Sim3 &g2oS12, const float th2, const bool bFixScale)
@@ -2017,7 +2119,16 @@ void Optimizer::BundleAdjustmentWithOdom(const vector<KeyFrame *> &vpKFs, const 
 
         MapPointBird* pMPB = vpMPB[i];
         g2o::VertexSBAPointXYZ* vPoint = static_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(pMPB->mnId+maxMPid+1));
-        pMPB->SetWorldPos(Converter::toCvMat(vPoint->estimate()));
+        if (nLoopKF==0)
+        {
+            pMPB->SetWorldPos(Converter::toCvMat(vPoint->estimate()));
+        }
+        else
+        {
+            pMPB->mPosGBA.create(3,1,CV_32F);
+            Converter::toCvMat(vPoint->estimate()).copyTo(pMPB->mPosGBA);
+            pMPB->mnBAGlobalForKF = nLoopKF;
+        }
     }    
 }
 

@@ -50,3 +50,6 @@ Bird tracking is implemented when the front is lost. Some thing cout out for deb
 
 v1.5:
 wait for change parameters, and test the lost reInit performance.
+
+v1.6:
+Hope the bird kf can be more when lost, and the parent relationship be useful when GBA after loopclosing.

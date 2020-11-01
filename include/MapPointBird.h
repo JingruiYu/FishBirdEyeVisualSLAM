@@ -32,6 +32,7 @@ public:
     cv::Mat GetDescriptor();
     int Observations();
     bool isBad();
+    KeyFrame* GetReferenceKeyFrame();
 
 public:
     long unsigned int mnId;
@@ -62,6 +63,10 @@ public:
 
     bool mbBad;
 
+    long unsigned int mnCorrectedByKF;
+    long unsigned int mnCorrectedReference; 
+    cv::Mat mPosGBA;
+    long unsigned int mnBAGlobalForKF;
 };
 
 

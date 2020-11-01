@@ -141,6 +141,7 @@ public:
     // True if local mapping is deactivated and we are performing only localization
     bool mbOnlyTracking;
     bool IsReInit;
+    bool IsbirdWithRefKF;
 
     pcl::visualization::PCLVisualizer::Ptr Twc_ptr_;
     pcl::visualization::PCLVisualizer::Ptr Twb_ptr_;
@@ -250,6 +251,8 @@ protected:
 
     //Current matches in frame
     int mnMatchesInliers;
+    int mnBirdKFMatches;
+    int mnBirdLastFMatches;
 
     //Last Frame, KeyFrame and Relocalisation Info
     KeyFrame* mpLastKeyFrame;

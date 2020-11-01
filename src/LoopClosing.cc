@@ -511,13 +511,17 @@ void LoopClosing::CorrectLoop()
                     continue;
                 if (pMPBi->isBad())
                     continue;
-                
+                if (pMPBi->mnCorrectedByKF==mpCurrentKF->mnId)
+                    continue;
+
                 cv::Mat P3Dw = pMPBi->GetWorldPos();
                 Eigen::Matrix<double,3,1> eigP3Dw = Converter::toVector3d(P3Dw);
                 Eigen::Matrix<double,3,1> eigCorrectedP3Dw = g2oCorrectedSwi.map(g2oSiw.map(eigP3Dw));
 
                 cv::Mat cvCorrectedP3Dw = Converter::toCvMat(eigCorrectedP3Dw);
                 pMPBi->SetWorldPos(cvCorrectedP3Dw);
+                pMPBi->mnCorrectedByKF==mpCurrentKF->mnId;
+                pMPBi->mnCorrectedReference = pKFi->mnId;
             }
             
 
@@ -695,7 +699,7 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
         if(!mbStopGBA)
         {
             cout << "Global Bundle Adjustment finished" << endl;
-            cout << "Updating map ... 1 " << endl;
+            // cout << "Updating map ... 1 " << endl;
             mpLocalMapper->RequestStop();
             // Wait until Local Mapping has effectively stopped
             cout << "Updating map ... 2 " << endl;
@@ -706,10 +710,9 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
             cout << "Updating map ... 3 " << endl;
             // Get Map Mutex
             unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
-
+            
             // Correct keyframes starting at map first keyframe
             list<KeyFrame*> lpKFtoCheck(mpMap->mvpKeyFrameOrigins.begin(),mpMap->mvpKeyFrameOrigins.end());
-
             while(!lpKFtoCheck.empty())
             {
                 KeyFrame* pKF = lpKFtoCheck.front();
@@ -770,7 +773,55 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
 
                     pMP->SetWorldPos(Rwc*Xc+twc);
                 }
-            }            
+            } 
+
+            int refEmpty = 0;
+            int refNotEm = 0;
+            const vector<MapPointBird*> vpMPBs = mpMap->GetAllMapPointsBird();
+            for (size_t i = 0; i < vpMPBs.size(); i++)
+            {
+                MapPointBird* pMPB = vpMPBs[i];
+
+                if (pMPB->isBad())
+                    continue;
+
+                if (pMPB->mnBAGlobalForKF == nLoopKF)
+                {
+                    pMPB->SetWorldPos(pMPB->mPosGBA);
+                }
+                else
+                {
+                    KeyFrame* pRefKF = pMPB->GetReferenceKeyFrame();
+
+                    if (!pRefKF)
+                    {
+                        refEmpty++;
+                        continue;
+                    }
+                    else
+                    {
+                        refNotEm++;
+                    }
+                    
+                    
+                    if(pRefKF->mnBAGlobalForKF!=nLoopKF)
+                        continue;
+
+                    // Map to non-corrected camera
+                    cv::Mat Rcw = pRefKF->mTcwBefGBA.rowRange(0,3).colRange(0,3);
+                    cv::Mat tcw = pRefKF->mTcwBefGBA.rowRange(0,3).col(3);
+                    cv::Mat Xc = Rcw*pMPB->GetWorldPos()+tcw;
+
+                    // Backproject using corrected camera
+                    cv::Mat Twc = pRefKF->GetPoseInverse();
+                    cv::Mat Rwc = Twc.rowRange(0,3).colRange(0,3);
+                    cv::Mat twc = Twc.rowRange(0,3).col(3);
+
+                    pMPB->SetWorldPos(Rwc*Xc+twc);                    
+                }
+            }
+            cout << "In the Global, refEmpty: " << refEmpty << " -refNotEm: " << refNotEm << endl;
+                       
 
             mpMap->InformNewBigChange();
 

@@ -8,7 +8,8 @@ long unsigned int MapPointBird::nNextId=0;
 
 MapPointBird::MapPointBird(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap)
 :mWorldPos(Pos.clone()),mpRefKF(pRefKF),mpMap(pMap),nObs(0),mnBALocalForKF(0),
-mnTrackReferenceForFrame(0),mnLastFrameSeen(0), mbBad(false)
+mnTrackReferenceForFrame(0),mnLastFrameSeen(0), mbBad(false), mnCorrectedByKF(0),
+mnCorrectedReference(0), mnBAGlobalForKF(0)
 {
     // cout<<"Construct Birdview MapPoint with KeyFrame "<<pRefKF->mnId<<endl;
     mnId = nNextId++;
@@ -16,7 +17,7 @@ mnTrackReferenceForFrame(0),mnLastFrameSeen(0), mbBad(false)
 
 MapPointBird::MapPointBird(const cv::Mat &Pos, Frame* pFrame, Map* pMap, const int &idxF)
 :mWorldPos(Pos.clone()),mpMap(pMap),mpRefKF(static_cast<KeyFrame*>(NULL)),nObs(0),mnBALocalForKF(0),
-mnTrackReferenceForFrame(0),mnLastFrameSeen(0), mbBad(false)
+mnTrackReferenceForFrame(0),mnLastFrameSeen(0), mbBad(false), mnCorrectedByKF(0), mnCorrectedReference(0), mnBAGlobalForKF(0)
 {
     // cout<<"Construct Birdview MapPoint with Frame "<<pFrame->mnId<<endl;
     mnId = nNextId++;
@@ -172,6 +173,12 @@ int MapPointBird::Observations()
 bool MapPointBird::isBad()
 {
     return mbBad;
+}
+
+KeyFrame* MapPointBird::GetReferenceKeyFrame()
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    return mpRefKF;
 }
 
 }  // namespace ORB_SLAM2

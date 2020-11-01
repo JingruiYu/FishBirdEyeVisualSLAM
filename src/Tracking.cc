@@ -1181,9 +1181,14 @@ bool Tracking::TrackReferenceKeyFrame()
     }
     
     if(bHaveBird)
+        GetLocalMapForBird();
+
+    int numPt = mCurrentFrame.GetBirdMapPointsNum();
+    if (numPt < 10)
+    {
         GetPerFrameMatchedBirdPoints();
-
-
+    }
+    
     // Compute Bag of Words vector
     mCurrentFrame.ComputeBoW();
 
@@ -1305,7 +1310,7 @@ bool Tracking::TrackWithMotionModel()
     mCurrentFrame.SetPose(detlaT*mLastFrame.mTcw);
 
     if(bHaveBird)
-        GetPerFrameMatchedBirdPoints();
+        GetLocalMapForBird();
 
     ORBmatcher matcher(0.9,true);
 
@@ -1374,7 +1379,7 @@ bool Tracking::TrackLocalMap()
     // We have an estimation of the camera pose and some map points tracked in the frame.
     // We retrieve the local map and try to find matches to points in the local map.
     if(bHaveBird)
-        GetLocalMapForBird();
+        GetPerFrameMatchedBirdPoints();
 
     UpdateLocalMap();
 
@@ -1412,7 +1417,7 @@ bool Tracking::TrackLocalMap()
 
         }
     }
-    cout << "TrackLocalMap , MatchesInliers: " << mnMatchesInliers<< endl;
+    // cout << "TrackLocalMap , MatchesInliers: " << mnMatchesInliers<< endl;
 
     // Decide if the tracking was succesful
     // More restrictive if there was a relocalization recently
@@ -1489,13 +1494,15 @@ bool Tracking::NeedNewKeyFrame()
     const bool c1c =  mSensor!=System::MONOCULAR && (mnMatchesInliers<nRefMatches*0.25 || bNeedToInsertClose);
     // Condition 2: Few tracked points compared to reference keyframe. Lots of visual odometry compared to map matches.
     const bool c2 = ((mnMatchesInliers<nRefMatches*thRefRatio|| bNeedToInsertClose) && mnMatchesInliers>15);
+    
+    const bool b1 = BirdNeedKF() && (mCurrentFrame.mnId - mpReferenceKF->mnFrameId > 2);
     // cout<<"nRefMatches = "<<nRefMatches<<endl;
     // cout<<"thRefRatio = "<<thRefRatio<<endl;
     // cout<<"nRefMatches*thRefRatio = "<<nRefMatches*thRefRatio<<endl;
     // cout<<"mnMatchesInliers = "<<mnMatchesInliers<<endl;
     // cout<<"c1a = "<<c1a<<" , c1b = "<<c1b<<" , c1c = "<<c1c<<" , c2 = "<<c2<<endl;
     // cout<<"(c1a||c1b||c1c)&&c2 = "<<((c1a||c1b||c1c)&&c2)<<endl;
-    if((c1a||c1b||c1c)&&c2)
+    if((c1a||c1b||c1c)&&c2 || b1)
     {
         // If the mapping accepts keyframes, insert keyframe.
         // Otherwise send a signal to interrupt BA
@@ -1874,7 +1881,7 @@ void Tracking::FilterBirdOutlierInFront(Frame* MatchedFrame1, Frame* MatchedFram
             inlier++;            
 
             MapPointBird *refMPBird = MatchedFrame1->mvpMapPointsBird[iMatch.queryIdx];
-            if (refMPBird && cv::norm(refMPBird->GetWorldPos()-ptwC,NORM_L2) < 0.05)
+            if (refMPBird)
             {
                 MatchedFrame2->mvpMapPointsBird[iMatch.trainIdx] = refMPBird;
                 inConsistent++;
@@ -1896,19 +1903,7 @@ void Tracking::FilterBirdOutlierInFront(Frame* MatchedFrame1, Frame* MatchedFram
     }
 
     vBirdDMatchs.assign(newMatch.begin(),newMatch.end());
-
-    // cout << "minDisC: " << minDisC << endl;
-    // cout << "maxDisC: " << maxDisC << endl;
-    // cout << "minDisCB: " << minDisCB << endl;
-    // cout << "maxDisCB: " << maxDisCB << endl;
-
-    // cout << "vDMatches12.size(): " << vDMatches12.size() << endl;
-    // cout << "inlier: " << inlier << endl;
-    // cout << "inLierBC: " << inLierBC << endl;
-    // cout << "inConsistent: " << inConsistent << endl;
-    // cout << "buildNew: " << buildNew << endl;
-
-    // cout << "FilterBirdOutlierInFront, bird number: " << inlier << endl;
+    mnBirdLastFMatches = buildNew;
 }
 
 void Tracking::CheckOptim(Frame* pFrame)
@@ -1995,36 +1990,19 @@ void Tracking::GetLocalMapForBird()
 {
     ORBmatcher BirdMatcher(0.9,true);
     vector<MapPointBird*> vlocalMPB = mpMap->GetLocalMapPointsBird();
-    int numB = mCurrentFrame.GetBirdMapPointsNum();
+    // mCurrentFrame.GetBirdMapPointsNum();
     if (vlocalMPB.size() > 10)
     {
-        int nmatches = BirdMatcher.BirdMapPointMatch(mCurrentFrame, vlocalMPB, 10, 0.05);
-    }
-    int numA = mCurrentFrame.GetBirdMapPointsNum();
-    
-    // cout << "\033[35m" << "the bird Point before local map search is " << numB << " , and the after is : " << numA << "\033[0m" << endl;
-    
-    if (numB == numA)
-    {
-        inlierCnt++;
-    }
-    else if (numB < numA)
-    {
-        outlierCnt++;
+        mnBirdKFMatches = BirdMatcher.BirdMapPointMatch(mCurrentFrame, vlocalMPB, 10, 0.05);  
     }
     else
     {
-        cout << "numB > numA ? " << endl;
-        getchar();
+        mnBirdKFMatches = 0;
     }
-    
-
-    // cout << "inlierCnt: " << inlierCnt << " outlierCnt: " << outlierCnt << endl;    
 }
 
 void Tracking::TrackUsingBird()
 {
-    
     if (IsbirdWithRefKF == 1)
     {
         cout << " TrackUsingBird with KF" << endl;
@@ -2044,21 +2022,8 @@ void Tracking::TrackUsingBird()
             IsbirdWithRefKF = 1;
     }
 
-    // cout << "is mCurrentFrame == tmpRefFrame? " << mCurrentFrame.mnId << " - " << tmpRefFrame->mnId << endl;
-    ORBmatcher BirdMatcher(0.9,true);
-    vector<MapPointBird*> vlocalMPB = mpMap->GetLocalMapPointsBird();
-    
-    vector<cv::DMatch> vDMatches12;
-    int nmatches = BirdMatcher.BirdviewMatch(mCurrentFrame,tmpRefFrame->mvKeysBird,tmpRefFrame->mDescriptorsBird,tmpRefFrame->mvpMapPointsBird,vDMatches12,0,10);
-    FilterBirdOutlierInFront(tmpRefFrame, &mCurrentFrame, vDMatches12, 0.05);
-
-    // cout << "the num of nmatches -2-: " << nmatches << endl;
-
-    if(nmatches < 10)
-    {
-        BirdMatcher.BirdMapPointMatch(mCurrentFrame, vlocalMPB, 10, 0.05);
-    }
-    
+    GetLocalMapForBird();
+        
     int numPt = mCurrentFrame.GetBirdMapPointsNum();
     // cout << "the num of MPs -3-: " << numPt << endl;
     if (numPt > 10)
@@ -2072,16 +2037,14 @@ void Tracking::TrackUsingBird()
     }
     else
     {
-        cout << "\033[32m" << "not enough matches for optimization" << "\033[0m" << endl;
+        GetPerFrameMatchedBirdPoints();
+
+        int optedMatches = Optimizer::BirdOptimization(&mCurrentFrame,1.0);
         
         outlierCnt++;
     }
 
-    nmatches = BirdMatcher.BirdMapPointMatch(mCurrentFrame, localMapPointBirds, 10, 0.05);
-    nmatches = BirdMatcher.BirdviewMatch(mCurrentFrame,tmpRefFrame->mvKeysBird,tmpRefFrame->mDescriptorsBird,tmpRefFrame->mvpMapPointsBird,vDMatches12,0,10);
-    FilterBirdOutlierInFront(tmpRefFrame, &mCurrentFrame, vDMatches12, 0.05);
-
-    vBirdDMatchs.assign(vDMatches12.begin(),vDMatches12.end());
+    GetPerFrameMatchedBirdPoints();
     // cout << "vDMatches12:- " << vDMatches12.size() << " - vBirdDMatchs.size() : - " << vBirdDMatchs.size() << endl;
 
     mpFrameDrawer->Update(this);
@@ -2092,9 +2055,19 @@ bool Tracking::BirdNeedKF()
     bool idDis = mCurrentFrame.mnId - mpReferenceKF->mnFrameId > 2;
     bool tDis = norm(mCurrentFrame.mTcw.rowRange(0,3).col(3) - mpReferenceKF->GetTranslation()) > 2;
     int numPt = mCurrentFrame.GetBirdMapPointsNum();
+    bool notEnoughMatch = mnBirdKFMatches < 20 && mnBirdLastFMatches > mnBirdKFMatches;
     
-    if (idDis || tDis && numPt > 10)
+    // if (mnBirdKFMatches < 10)
+    // {
+    //     cout << " the frame " << mCurrentFrame.mnId << " donnot have enough bird matches. " << mnBirdKFMatches << " , all the birdPoints: " << numPt << endl;
+    // }
+    
+    if ( mnBirdKFMatches < 0.7 * numPt || (mnBirdKFMatches < 10 && numPt > 10) )
+    {
+        // cout << "\033[1m\033[33m" << "bird need KF, mpReferenceKF->mnId: " << mpReferenceKF->mnId << ", mCurrentFrame.mnId: " << mCurrentFrame.mnId << "\033[0m" << endl;
         return true;
+    }
+        
     
     return false;
 }
