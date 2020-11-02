@@ -179,7 +179,7 @@ void LocalMapping::ProcessNewKeyFrame()
     }    
 
     // Update links in the Covisibility Graph
-    mpCurrentKeyFrame->UpdateConnections();
+    mpCurrentKeyFrame->UpdateConnections(mpTracker->mState);
 
     KeyFrame* pParentKF = mpCurrentKeyFrame->GetParent();
     if (!pParentKF)
@@ -554,7 +554,7 @@ void LocalMapping::SearchInNeighbors()
     }
 
     // Update connections in covisibility graph
-    mpCurrentKeyFrame->UpdateConnections();
+    mpCurrentKeyFrame->UpdateConnections(mpTracker->mState);
 }
 
 cv::Mat LocalMapping::ComputeF12(KeyFrame *&pKF1, KeyFrame *&pKF2)

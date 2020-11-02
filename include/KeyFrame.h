@@ -62,8 +62,8 @@ public:
     // Covisibility graph functions
     void AddConnection(KeyFrame* pKF, const int &weight);
     void EraseConnection(KeyFrame* pKF);
-    void UpdateBirdConnections();
-    void UpdateConnections();
+    void UpdateBirdConnections(int nowState);
+    void UpdateConnections(int nowState);
     void UpdateBestCovisibles();
     std::vector<KeyFrame *> GetBirdConnectedBirdKeyFrames();
     std::set<KeyFrame *> GetConnectedKeyFrames();

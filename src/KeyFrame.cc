@@ -365,8 +365,12 @@ MapPointBird* KeyFrame::GetMapPointBird(const size_t &idx)
     return mvpMapPointsBird[idx];
 }
 
-void KeyFrame::UpdateBirdConnections()
+void KeyFrame::UpdateBirdConnections(int nowState)
 {
+    if (nowState >= 3)
+        cout << "\033[1m\033[33m" << "UpdateBirdConnections with state: " << nowState << "\033[0m" << endl;
+                
+
     map<KeyFrame*, int> KFcounter;
     vector<MapPointBird*> vpMPB = mvpMapPointsBird;
 
@@ -390,14 +394,32 @@ void KeyFrame::UpdateBirdConnections()
         }
     }
 
-    if (!mpParent)
-    {
-        cout << "go int Bird connections? 2 - ID" << this->mnFrameId << endl;
-    }
-
     if(KFcounter.empty())
     {
-        cout << "Bird KFcounter.empty() : ID:" << this->mnId << " FrameId:" << this->mnFrameId << " ,pMPBnum: " << pMPBnum << endl;
+        if (nowState >= 3 && !mpParent)
+        {
+            cout << "Bird KFcounter.empty() : ID:" << this->mnId << " FrameId:" << this->mnFrameId << " ,pMPBnum: " << pMPBnum << endl;
+
+            vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
+            KeyFrame* nearKF;
+            int nearIDx = 0;
+            for(size_t i=0; i<vpKFs.size(); i++)
+            {
+                KeyFrame* pKF = vpKFs[i];
+
+                if (pKF->mnFrameId > nearIDx && pKF->mnFrameId < this->mnFrameId)
+                {
+                    nearIDx = pKF->mnFrameId;
+                    nearKF = pKF;
+                }
+            }
+
+            cout << "1,,,,find ID: " << nearKF->mnId << " , and this ID: " << this->mnId << endl;
+            mpParent = nearKF;
+            mpParent->AddChild(this);
+            mbFirstConnection = false;
+        }
+
         return;
     }
         
@@ -441,20 +463,44 @@ void KeyFrame::UpdateBirdConnections()
                 mpParent->AddChild(this);
                 mbFirstConnection = false;
 
-                cout << "\033[1m\033[33m" << "bird mpParent is not empty. The frame ID is " << this->mnFrameId << "\033[0m" << endl;
+                cout << "\033[1m\033[33m" << "4,,,,bird mpParent is not empty. The frame ID is " << this->mnFrameId << "\033[0m" << endl;
             
             }
             else
-            {
+            {                
                 cout << "\033[1m\033[33m" << "mpParent from front is empty, while bird mpParent is also empty. The frame ID is " << this->mnFrameId << "\033[0m" << endl;
+                if (nowState >= 3)
+                {
+                    vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
+                    KeyFrame* nearKF;
+                    int nearIDx = 0;
+                    for(size_t i=0; i<vpKFs.size(); i++)
+                    {
+                        KeyFrame* pKF = vpKFs[i];
+
+                        if (pKF->mnFrameId > nearIDx && pKF->mnFrameId < this->mnFrameId)
+                        {
+                            nearIDx = pKF->mnFrameId;
+                            nearKF = pKF;
+                        }
+                    }
+
+                    cout << "2,,,,find ID: " << nearKF->mnId << " , and this ID: " << this->mnId << endl;
+                    mpParent = nearKF;
+                    mpParent->AddChild(this);
+                    mbFirstConnection = false;
+                }
             }
         }
         
     }
 }
 
-void KeyFrame::UpdateConnections()
+void KeyFrame::UpdateConnections(int nowState)
 {
+    if (nowState == 4)
+        cout << "UpdateConnections 4...1" << endl;
+
     map<KeyFrame*,int> KFcounter;
 
     vector<MapPoint*> vpMP;
@@ -486,14 +532,22 @@ void KeyFrame::UpdateConnections()
         }
     }
 
+    if (nowState == 4)
+        cout << "UpdateConnections 4...2" << endl;
+
     // This should not happen
     if(KFcounter.empty())
     {
         cout << "Front KFcounter.empty() : " << this->mnFrameId << endl;
-        UpdateBirdConnections();
+
+        if (nowState >= 3)       
+            UpdateBirdConnections(nowState);
+
         return;
     }
         
+    if (nowState == 4)
+        cout << "UpdateConnections 4...3" << endl;
 
     //If the counter is greater than threshold add connection
     //In case no keyframe counter is over threshold add the one with maximum counter
@@ -523,6 +577,9 @@ void KeyFrame::UpdateConnections()
         pKFmax->AddConnection(this,nmax);
     }
 
+    if (nowState == 4)
+        cout << "UpdateConnections 4...31" << endl;
+
     sort(vPairs.begin(),vPairs.end());
     list<KeyFrame*> lKFs;
     list<int> lWs;
@@ -542,24 +599,54 @@ void KeyFrame::UpdateConnections()
 
         if(mbFirstConnection && mnId!=0)
         {
-            mpParent = mvpOrderedConnectedKeyFrames.front();
+            KeyFrame* pKFt = mvpOrderedConnectedKeyFrames.front();
+
+            if (pKFt->mnFrameId > this->mnFrameId && nowState == 4)
+            {
+                cout << "UpdateConnections 4...4" << endl;
+
+                vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
+                int nearIDx = 0;
+                for(size_t i=0; i<vpKFs.size(); i++)
+                {
+                    KeyFrame* pKF = vpKFs[i];
+
+                    if (pKF->mnFrameId > nearIDx && pKF->mnFrameId < this->mnFrameId)
+                    {
+                        nearIDx = pKF->mnFrameId;
+                        pKFt = pKF;
+                    }
+                }
+            }
+            
+            mpParent = pKFt;
             mpParent->AddChild(this);
             mbFirstConnection = false;
         }
-
     }
+
+    if (nowState == 4)
+        cout << "UpdateConnections 4...5" << endl;
 
     if (!mpParent)
     {
         cout << "go int Bird connections? - ID" << this->mnFrameId << endl;
     }
     
-    UpdateBirdConnections();
+    UpdateBirdConnections(nowState);
 }
 
 void KeyFrame::AddChild(KeyFrame *pKF)
 {
     unique_lock<mutex> lockCon(mMutexConnections);
+    if (pKF->mnId < this->mnId)
+    {
+        cout << "Add child, why pKF->mnFrameId, " << pKF->mnFrameId << " < this->mnFrameId? " <<  this->mnFrameId << endl;
+        cout << "Add child, why pKF->mnId, " << pKF->mnId << " < this->mnId? " <<  this->mnId << endl;
+
+        getchar();
+    }
+    
     mspChildrens.insert(pKF);
 }
 

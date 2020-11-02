@@ -432,7 +432,7 @@ void LoopClosing::CorrectLoop()
     }
 
     // Ensure current keyframe is updated
-    mpCurrentKF->UpdateConnections();
+    mpCurrentKF->UpdateConnections(mpTracker->mState);
 
     // Retrive keyframes connected to the current keyframe and compute corrected Sim3 pose by propagation
     mvpCurrentConnectedKFs = mpCurrentKF->GetVectorCovisibleKeyFrames();
@@ -537,7 +537,7 @@ void LoopClosing::CorrectLoop()
             pKFi->SetPose(correctedTiw);
 
             // Make sure connections are updated
-            pKFi->UpdateConnections();
+            pKFi->UpdateConnections(mpTracker->mState);
         }
 
         // Start Loop Fusion
@@ -576,7 +576,7 @@ void LoopClosing::CorrectLoop()
         vector<KeyFrame*> vpPreviousNeighbors = pKFi->GetVectorCovisibleKeyFrames();
 
         // Update connections. Detect new links.
-        pKFi->UpdateConnections();
+        pKFi->UpdateConnections(mpTracker->mState);
         LoopConnections[pKFi]=pKFi->GetConnectedKeyFrames();
         for(vector<KeyFrame*>::iterator vit_prev=vpPreviousNeighbors.begin(), vend_prev=vpPreviousNeighbors.end(); vit_prev!=vend_prev; vit_prev++)
         {
@@ -710,14 +710,16 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
             cout << "Updating map ... 3 " << endl;
             // Get Map Mutex
             unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
-            
+            cout << "Updating map ... 3.1 " << endl;
             // Correct keyframes starting at map first keyframe
             list<KeyFrame*> lpKFtoCheck(mpMap->mvpKeyFrameOrigins.begin(),mpMap->mvpKeyFrameOrigins.end());
+            int idx2 = 0;
             while(!lpKFtoCheck.empty())
             {
                 KeyFrame* pKF = lpKFtoCheck.front();
                 const set<KeyFrame*> sChilds = pKF->GetChilds();
                 cv::Mat Twc = pKF->GetPoseInverse();
+                int idx = 0;
                 for(set<KeyFrame*>::const_iterator sit=sChilds.begin();sit!=sChilds.end();sit++)
                 {
                     KeyFrame* pChild = *sit;
@@ -726,14 +728,15 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
                         cv::Mat Tchildc = pChild->GetPose()*Twc;
                         pChild->mTcwGBA = Tchildc*pKF->mTcwGBA;//*Tcorc*pKF->mTcwGBA;
                         pChild->mnBAGlobalForKF=nLoopKF;
-
                     }
                     lpKFtoCheck.push_back(pChild);
+                    idx++;
+                    cout << "idx: " << idx << " / sChilds.size(): " << sChilds.size() << endl;
                 }
-
                 pKF->mTcwBefGBA = pKF->GetPose();
                 pKF->SetPose(pKF->mTcwGBA);
                 lpKFtoCheck.pop_front();
+                cout << "idx2: " << idx2 << " / lpKFtoCheck.size(): " << lpKFtoCheck.size() << endl;
             }
             
             cout << "Updating map ... 4 " << endl;

@@ -504,7 +504,7 @@ void Tracking::Track()
             cout << "Initial Frame is : " << mCurrentFrame.mnId << endl;
             std::vector<MapPointBird*> vMPB = mpMap->GetAllMapPointsBird();
             cout << "vMPB in MP is " << vMPB.size() << endl;
-            getchar();
+            // getchar();
         }
         
         if(mState!=OK)
@@ -545,7 +545,16 @@ void Tracking::Track()
             else
             {   
                 if (bHaveBird || bLooseCouple || bTightCouple)
-                    bOK = ReInitialization();
+                {
+                    if ( (mCurrentFrame.mnId > 550 && mCurrentFrame.mnId < 600) || (mCurrentFrame.mnId > 975 && mCurrentFrame.mnId < 995) ) //(mCurrentFrame.mnId > 550 && mCurrentFrame.mnId < 570) ||
+                    {
+                        bOK = false;
+                    }
+                    else
+                    {
+                        bOK = ReInitialization();
+                    }
+                }
                 else
                     bOK = Relocalization();
 
@@ -555,8 +564,7 @@ void Tracking::Track()
 
                     if(BirdNeedKF())
                         CreateNewKeyFrame();
-                }
-                
+                }                
             }
         }
         else
@@ -642,7 +650,7 @@ void Tracking::Track()
                 if (!bOK)
                 {
                     cout << "\033[1m\033[36m"  << "Frame " << mCurrentFrame.mnId << " is not ok, after LocalMap." << "\033[0m" << endl;
-                    getchar();
+                    // getchar();
                 }
             }
         }
@@ -935,8 +943,8 @@ void Tracking::CreateInitialMapMonocular()
     }
 
     // Update Connections
-    pKFini->UpdateConnections();
-    pKFcur->UpdateConnections();
+    pKFini->UpdateConnections(mState);
+    pKFcur->UpdateConnections(mState);
 
     // Bundle Adjustment
     cout << "New Map created with " << mpMap->MapPointsInMap() << " points" << endl;
@@ -1090,8 +1098,8 @@ bool Tracking::CreateReInitialMapPoints()
     cout << "pKFcur->InlierNum : " << pKFcur->GetMapPointsInlierNum() << endl;
 
     // Update Connections
-    pKFReI->UpdateConnections();
-    pKFcur->UpdateConnections();
+    pKFReI->UpdateConnections(4);
+    pKFcur->UpdateConnections(4);
 
     // Bundle Adjustment
     cout << "New Map created with " << mpMap->MapPointsInMap() << " points" << endl;
@@ -1139,8 +1147,6 @@ bool Tracking::CreateReInitialMapPoints()
     mpMap->SetReferenceMapPoints(mvpLocalMapPoints);
 
     mpMapDrawer->SetCurrentCameraPose(pKFcur->GetPose());
-
-    mpMap->mvpKeyFrameOrigins.push_back(pKFReI);
 
     mState=OK;
     IsReInit=true;
@@ -1502,7 +1508,7 @@ bool Tracking::NeedNewKeyFrame()
     // cout<<"mnMatchesInliers = "<<mnMatchesInliers<<endl;
     // cout<<"c1a = "<<c1a<<" , c1b = "<<c1b<<" , c1c = "<<c1c<<" , c2 = "<<c2<<endl;
     // cout<<"(c1a||c1b||c1c)&&c2 = "<<((c1a||c1b||c1c)&&c2)<<endl;
-    if((c1a||c1b||c1c)&&c2 || b1)
+    if((c1a||c1b||c1c)&&c2)
     {
         // If the mapping accepts keyframes, insert keyframe.
         // Otherwise send a signal to interrupt BA
@@ -2005,7 +2011,7 @@ void Tracking::TrackUsingBird()
 {
     if (IsbirdWithRefKF == 1)
     {
-        cout << " TrackUsingBird with KF" << endl;
+        cout << "\033[1m\033[35m" << " TrackUsingBird with KF" << "\033[0m" << endl;
 
         cv::Mat detlaT = Frame::GetTransformFromOdometer(mpReferenceKF->mGtPose,mCurrentFrame.mGtPose).inv(); 
         mCurrentFrame.SetPose(detlaT*mpReferenceKF->GetPose());
