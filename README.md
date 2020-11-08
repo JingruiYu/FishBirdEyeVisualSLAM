@@ -53,3 +53,9 @@ wait for change parameters, and test the lost reInit performance.
 
 v1.6:
 Hope the bird kf can be more when lost, and the parent relationship be useful when GBA after loopclosing.
+
+v1.7:
+change the outlier of front.
+
+v1.8:
+some compare experiments have done. Fix the reInit frame in the local Mapping.

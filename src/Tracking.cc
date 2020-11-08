@@ -544,21 +544,12 @@ void Tracking::Track()
             }
             else
             {   
-                if (bHaveBird || bLooseCouple || bTightCouple)
-                {
-                    if ( (mCurrentFrame.mnId > 550 && mCurrentFrame.mnId < 600) || (mCurrentFrame.mnId > 975 && mCurrentFrame.mnId < 995) ) //(mCurrentFrame.mnId > 550 && mCurrentFrame.mnId < 570) ||
-                    {
-                        bOK = false;
-                    }
-                    else
-                    {
-                        bOK = ReInitialization();
-                    }
-                }
+                if (bHaveBird)
+                    bOK = ReInitialization();
                 else
                     bOK = Relocalization();
 
-                if (!bOK)
+                if (!bOK && bHaveBird)
                 {
                     TrackUsingBird();
 
@@ -907,6 +898,8 @@ void Tracking::CreateInitialMapMonocular()
     cout << "pKFini" << pKFini->mnId << " frameId: " << pKFini->mnFrameId << endl;
     cout << "pKFcur" << pKFcur->mnId << " frameId: " << pKFcur->mnFrameId << endl;
 
+    pKFini->isInit = true;
+
     pKFini->ComputeBoW();
     pKFcur->ComputeBoW();
 
@@ -1059,6 +1052,8 @@ bool Tracking::CreateReInitialMapPoints()
 
     cout << "pKFini->mnFrameId : " << pKFReI->mnFrameId << endl;
     cout << "pKFcur->mnFrameId : " << pKFcur->mnFrameId << endl;
+
+    pKFReI->isInit = true;
 
     pKFReI->ComputeBoW();
     pKFcur->ComputeBoW();

@@ -169,7 +169,7 @@ int main(int argc, char **argv)
         //SLAM.TrackMonocular(im,tframe);
         SLAM.TrackMonocularWithOdom(im,birdview,birdviewmask,birdviewContour,birdviewContourICP,gtPose,odomPose,tframe);
 
-        if (ni % 500 == 0)  
+        if (ni == 400)  
             getchar();
 
 #ifdef COMPILEDWITHC11
