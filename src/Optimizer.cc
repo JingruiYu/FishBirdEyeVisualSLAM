@@ -37,6 +37,7 @@
 #include "OdomG2oTypeQuat.h"
 
 extern bool bTightCouple;
+extern bool bTightCouple2;
 extern bool bHaveBird;
 
 namespace ORB_SLAM2
@@ -2449,42 +2450,45 @@ void Optimizer::LocalBundleAdjustmentWithOdom(KeyFrame *pKF, bool* pbStopFlag, M
             optimizer.addEdge(e);
             // cout<<"add pose constraint between KF ("<<KF1->mnId<<" , "<<KF2->mnId<<")"<<endl;
 
-            vector<KeyFrame*>::iterator KFextra=KFnext+1;
-            if(KFextra!=vLocalKeyFrames.end())
+            if (bTightCouple2)
             {
-                KeyFrame *KF3=*KFextra;
-                Eigen::Matrix4d T13=Converter::toMatrix4d(Frame::GetTransformFromOdometer(KF1->mGtPose,KF3->mGtPose));
-    #ifdef USE_SOPHUS
-                EdgeSE3LieAlgebra *e=new EdgeSE3LieAlgebra();
-                e->setMeasurement(SE3(T13.block(0,0,3,3),T13.block(0,3,3,1)));
-    #else
-                EdgeSE3Quat *e = new EdgeSE3Quat();
-                e->setMeasurement(g2o::SE3Quat(T13.block(0,0,3,3),T13.block(0,3,3,1)));
-    #endif
-                e->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(KF1->mnId)));
-                e->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(KF3->mnId)));
-                
-                e->setInformation(g2o::Matrix6d::Identity()*2e3);
-                optimizer.addEdge(e);
-                // cout<<"add extra pose constraint between KF ("<<KF1->mnId<<" , "<<KF3->mnId<<")"<<endl;
-
-                vector<KeyFrame*>::iterator KFextra2=KFnext+2;
-                if(KFextra2!=vLocalKeyFrames.end())
+                vector<KeyFrame*>::iterator KFextra=KFnext+1;
+                if(KFextra!=vLocalKeyFrames.end())
                 {
-                    KeyFrame *KF4=*KFextra2;
-                    Eigen::Matrix4d T14=Converter::toMatrix4d(Frame::GetTransformFromOdometer(KF1->mGtPose,KF4->mGtPose));
-    #ifdef USE_SOPHUS
+                    KeyFrame *KF3=*KFextra;
+                    Eigen::Matrix4d T13=Converter::toMatrix4d(Frame::GetTransformFromOdometer(KF1->mGtPose,KF3->mGtPose));
+#ifdef USE_SOPHUS
                     EdgeSE3LieAlgebra *e=new EdgeSE3LieAlgebra();
-                    e->setMeasurement(SE3(T14.block(0,0,3,3),T14.block(0,3,3,1)));
-    #else
+                    e->setMeasurement(SE3(T13.block(0,0,3,3),T13.block(0,3,3,1)));
+#else
                     EdgeSE3Quat *e = new EdgeSE3Quat();
-                    e->setMeasurement(g2o::SE3Quat(T14.block(0,0,3,3),T14.block(0,3,3,1)));
-    #endif
+                    e->setMeasurement(g2o::SE3Quat(T13.block(0,0,3,3),T13.block(0,3,3,1)));
+#endif
                     e->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(KF1->mnId)));
-                    e->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(KF4->mnId)));
-                    e->setInformation(g2o::Matrix6d::Identity()*1e3*wP);
+                    e->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(KF3->mnId)));
+                    
+                    e->setInformation(g2o::Matrix6d::Identity()*2e3);
                     optimizer.addEdge(e);
-                    // cout<<"add 2nd extra pose constraint between KF ("<<KF1->mnId<<" , "<<KF4->mnId<<")"<<endl;
+                    // cout<<"add extra pose constraint between KF ("<<KF1->mnId<<" , "<<KF3->mnId<<")"<<endl;
+
+                    vector<KeyFrame*>::iterator KFextra2=KFnext+2;
+                    if(KFextra2!=vLocalKeyFrames.end())
+                    {
+                        KeyFrame *KF4=*KFextra2;
+                        Eigen::Matrix4d T14=Converter::toMatrix4d(Frame::GetTransformFromOdometer(KF1->mGtPose,KF4->mGtPose));
+#ifdef USE_SOPHUS
+                        EdgeSE3LieAlgebra *e=new EdgeSE3LieAlgebra();
+                        e->setMeasurement(SE3(T14.block(0,0,3,3),T14.block(0,3,3,1)));
+#else
+                        EdgeSE3Quat *e = new EdgeSE3Quat();
+                        e->setMeasurement(g2o::SE3Quat(T14.block(0,0,3,3),T14.block(0,3,3,1)));
+#endif
+                        e->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(KF1->mnId)));
+                        e->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(KF4->mnId)));
+                        e->setInformation(g2o::Matrix6d::Identity()*1e3*wP);
+                        optimizer.addEdge(e);
+                        // cout<<"add 2nd extra pose constraint between KF ("<<KF1->mnId<<" , "<<KF4->mnId<<")"<<endl;
+                    }
                 }
             }
         }

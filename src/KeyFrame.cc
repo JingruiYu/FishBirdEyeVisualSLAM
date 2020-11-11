@@ -414,8 +414,14 @@ void KeyFrame::UpdateBirdConnections(int nowState)
                 }
             }
 
-            cout << "1,,,,find ID: " << nearKF->mnId << " , and this ID: " << this->mnId << endl;
+            
             mpParent = nearKF;
+            if (mpParent->mnId >= this->mnId)
+            {
+                cout << "1,,,,find ID: " << mpParent->mnId << " , and this ID: " << this->mnId << endl;
+                getchar();
+            }
+            
             mpParent->AddChild(this);
             mbFirstConnection = false;
         }
@@ -457,14 +463,19 @@ void KeyFrame::UpdateBirdConnections(int nowState)
 
         if (!mpParent || mbFirstConnection)
         {
+            if (this->mnId == 0)
+                return;
+            
             if (!mvpBirdConnectedKeyFrames.empty())
             {
                 mpParent = mvpBirdConnectedKeyFrames.front();
+                if (mpParent->mnId >= this->mnId)
+                {
+                    cout << "4,,,,bird mpParent is not empty. ID: " << mpParent->mnId << " , and this ID: " << this->mnId << endl;
+                    getchar();
+                }
                 mpParent->AddChild(this);
                 mbFirstConnection = false;
-
-                cout << "\033[1m\033[33m" << "4,,,,bird mpParent is not empty. The frame ID is " << this->mnFrameId << "\033[0m" << endl;
-            
             }
             else
             {                
@@ -485,8 +496,12 @@ void KeyFrame::UpdateBirdConnections(int nowState)
                         }
                     }
 
-                    cout << "2,,,,find ID: " << nearKF->mnId << " , and this ID: " << this->mnId << endl;
                     mpParent = nearKF;
+                    if (mpParent->mnId >= this->mnId)
+                    {
+                        cout << "2,,,,find ID. ID: " << mpParent->mnId << " , and this ID: " << this->mnId << endl;
+                        getchar();
+                    }
                     mpParent->AddChild(this);
                     mbFirstConnection = false;
                 }
@@ -644,7 +659,7 @@ void KeyFrame::AddChild(KeyFrame *pKF)
         cout << "Add child, why pKF->mnFrameId, " << pKF->mnFrameId << " < this->mnFrameId? " <<  this->mnFrameId << endl;
         cout << "Add child, why pKF->mnId, " << pKF->mnId << " < this->mnId? " <<  this->mnId << endl;
 
-        getchar();
+        // getchar();
     }
     
     mspChildrens.insert(pKF);
@@ -658,7 +673,7 @@ void KeyFrame::EraseChild(KeyFrame *pKF)
 
 void KeyFrame::ChangeParent(KeyFrame *pKF)
 {
-    unique_lock<mutex> lockCon(mMutexConnections);
+    unique_lock<mutex> lockCon(mMutexConnections);    
     mpParent = pKF;
     pKF->AddChild(this);
 }

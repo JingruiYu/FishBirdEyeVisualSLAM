@@ -544,7 +544,7 @@ void Tracking::Track()
             }
             else
             {   
-                if (bHaveBird)
+                if (bHaveBird || bTightCouple)
                     bOK = ReInitialization();
                 else
                     bOK = Relocalization();
@@ -654,7 +654,10 @@ void Tracking::Track()
                 bOK = TrackLocalMap();
         }
 
-        DrawCurPose(mCurrentFrame.mTcw,0,150,0,"PoseAfterLocalMap");
+        if (!mCurrentFrame.mTcw.empty())
+        {
+            DrawCurPose(mCurrentFrame.mTcw,0,150,0,"PoseAfterLocalMap");
+        }        
         DrawGT(0,0,150,"GroundTruth");
 
         if(bOK)

@@ -28,9 +28,10 @@
 #include <unistd.h>
 
 bool bTightCouple=true;
+bool bTightCouple2=true;
 bool bLooseCouple=true;
 bool bFixScale=true;
-bool bHaveBird=true;
+bool bHaveBird=false;
 
 namespace ORB_SLAM2
 {
