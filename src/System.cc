@@ -31,7 +31,7 @@ bool bTightCouple=true;
 bool bTightCouple2=true;
 bool bLooseCouple=true;
 bool bFixScale=true;
-bool bHaveBird=false;
+bool bHaveBird=true;
 
 namespace ORB_SLAM2
 {

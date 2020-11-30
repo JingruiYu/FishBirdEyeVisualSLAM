@@ -55,7 +55,7 @@ Frame::Frame(const Frame &frame)
      mvKeysBird(frame.mvKeysBird), mvKeysBirdCamXYZ(frame.mvKeysBirdCamXYZ), mvKeysBirdBaseXY(frame.mvKeysBirdBaseXY), 
      mvpMapPointsBird(frame.mvpMapPointsBird), mDescriptorsBird(frame.mDescriptorsBird), mvBirdOutlier(frame.mvBirdOutlier),
      mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), 
-     mImg(frame.mImg), mBirdviewImg(frame.mBirdviewImg), mBirdviewMask(frame.mBirdviewMask),
+     mImg(frame.mImg), mBirdColor(frame.mBirdColor), mBirdviewImg(frame.mBirdviewImg), mBirdviewMask(frame.mBirdviewMask),
      mBirdviewContour(frame.mBirdviewContour), mBirdviewContourICP(frame.mBirdviewContourICP),
      mOdomPose(frame.mOdomPose), mGtPose(frame.mGtPose),mbHaveOdom(frame.mbHaveOdom),
      mBowVec(frame.mBowVec), mFeatVec(frame.mFeatVec),
@@ -258,7 +258,7 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
 }
 
 /********************* Modified Here *********************/
-Frame::Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &birdviewmask, const cv::Mat &birdviewContour,
+Frame::Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &BirdColor, const cv::Mat &birdviewmask, const cv::Mat &birdviewContour,
         const cv::Mat &birdviewContourICP, const double &timeStamp, cv::Vec3d odomPose, cv::Vec3d gtPose,
         ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
     :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
@@ -322,6 +322,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &bird
     mvbOutlier = vector<bool>(N,false);
 
     mImg = imGray.clone();
+    mBirdColor = BirdColor.clone();
     mBirdviewImg = BirdGray.clone();
     mBirdviewMask = birdviewmask.clone();
     mBirdviewContour = birdviewContour.clone();

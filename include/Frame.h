@@ -62,7 +62,7 @@ public:
 
     /********************* Modified Here *********************/
     // Constructor for Monocular cameras with Odometry. Notice: Other constructors are also added initialization terms for mbHaveOdom flag.
-    Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &birdviewmask, const cv::Mat &birdviewContour,
+    Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &BirdColor, const cv::Mat &birdviewmask, const cv::Mat &birdviewContour,
         const cv::Mat &birdviewContourICP, const double &timeStamp, cv::Vec3d odomPose, cv::Vec3d gtPose, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
@@ -184,6 +184,7 @@ public:
     /********************* Modified Here *********************/
     //odometry pose at current frame.
     cv::Mat mImg;
+    cv::Mat mBirdColor;
     cv::Mat mBirdviewImg;
     cv::Mat mBirdviewMask;
     cv::Mat mBirdviewContour;

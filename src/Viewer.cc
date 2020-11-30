@@ -52,6 +52,8 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer
     mViewpointY = fSettings["Viewer.ViewpointY"];
     mViewpointZ = fSettings["Viewer.ViewpointZ"];
     mViewpointF = fSettings["Viewer.ViewpointF"];
+
+    colorIdx = 0;
 }
 
 void Viewer::Run()
@@ -145,9 +147,20 @@ void Viewer::Run()
             cv::Mat imBird = mpFrameDrawer->DrawBird();
             // cv::Mat imBirdMask = mpFrameDrawer->DrawBirdMask();
             cv::Mat imBirdMatch = mpFrameDrawer->DrawBirdMatches();
+            cv::Mat imBirdSave = mpFrameDrawer->DrawBirdSave();
+
             cv::imshow("Bird_view",imBird);
             // cv::imshow("Bird_view_mask",imBirdMask);
             cv::imshow("Bird_view match",imBirdMatch);
+
+            cv::imshow("Bird for save",imBirdSave);
+
+            stringstream ss;
+            string imgName;
+            ss << colorIdx;
+            ss >> imgName;
+            cv::imwrite("/home/yujr/mono_brid_semantic/Data/saic_new_birdview3/color2/"+imgName+".png",imBirdSave);
+            colorIdx++;
         }
 
         cv::waitKey(mT);

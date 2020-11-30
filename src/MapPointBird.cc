@@ -32,7 +32,7 @@ void MapPointBird::AddObservation(KeyFrame* pKF, size_t idx)
     unique_lock<mutex> lock(mMutexFeatures);
     if(mObservations.count(pKF))
     {
-        cout << "the observation have!" << pKF->mnId << " -idx: " << idx << endl;
+        // cout << "the observation have!" << pKF->mnId << " -idx: " << idx << endl;
         return;
     }
         

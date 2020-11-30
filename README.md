@@ -59,3 +59,6 @@ change the outlier of front.
 
 v1.8:
 some compare experiments have done. Fix the reInit frame in the local Mapping.
+
+v1.9:
+Bird images are saved.

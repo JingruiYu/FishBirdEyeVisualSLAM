@@ -56,6 +56,8 @@ public:
 
     void Release();
 
+    int colorIdx;
+
 private:
 
     bool Stop();

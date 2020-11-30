@@ -328,9 +328,9 @@ cv::Mat Tracking::GrabImageMonocularWithOdom(const cv::Mat &im, const cv::Mat &b
     }
 
     if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
-        mCurrentFrame = Frame(mImGray,BirdGray,birdviewmask,birdviewContour,birdviewContourICP,timestamp,odomPose,gtPose,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+        mCurrentFrame = Frame(mImGray,BirdGray,birdview,birdviewmask,birdviewContour,birdviewContourICP,timestamp,odomPose,gtPose,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
     else
-        mCurrentFrame = Frame(mImGray,BirdGray,birdviewmask,birdviewContour,birdviewContourICP,timestamp,odomPose,gtPose,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+        mCurrentFrame = Frame(mImGray,BirdGray,birdview,birdviewmask,birdviewContour,birdviewContourICP,timestamp,odomPose,gtPose,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
     Track();
     // TrackB();

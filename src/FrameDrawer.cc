@@ -165,6 +165,65 @@ cv::Mat FrameDrawer::DrawBirdMatches()
     return matchesImg;
 }
 
+cv::Mat FrameDrawer::DrawBirdSave()
+{
+    cv::Mat imForSave;
+    imForSave = mBirdColor.clone();
+
+
+    for (size_t row = 0; row < mICP.rows; row++)
+    {
+        for (size_t col = 0; col < mICP.cols; col++)
+        {
+            int label = -1;
+
+            if (mICP.at<uchar>(row, col) < 10)
+                continue; // free
+            else if (mICP.at<uchar>(row, col) < 150)
+                label = 0; // edge
+            else
+                label = 1; // freespace
+            
+            cv::Point2f pt;
+            pt.x = col;
+            pt.y = row;
+
+            if (label == 1)
+            {
+                imForSave.at<cv::Vec3b>(row, col) = cv::Vec3b(200, 0, 0);
+            }
+            else
+            {
+                imForSave.at<cv::Vec3b>(row, col) = cv::Vec3b(0, 200, 0);
+            }
+            
+            // cv::circle(imForSave,pt,0.5,cv::Scalar(0,200,0),-1);
+        }
+    }  
+
+    const float r = 5;
+
+    // for (int i = 0; i < mvCurrentBirdKeys.size(); i++)
+    // {
+    //     cv::Point2f pt1,pt2;
+    //     pt1.x=mvCurrentBirdKeys[i].pt.x-r;
+    //     pt1.y=mvCurrentBirdKeys[i].pt.y-r;
+    //     pt2.x=mvCurrentBirdKeys[i].pt.x+r;
+    //     pt2.y=mvCurrentBirdKeys[i].pt.y+r;
+            
+    //     // cv::rectangle(imForSave,pt1,pt2,cv::Scalar(0,255,0));
+    //     cv::circle(imForSave,mvCurrentBirdKeys[i].pt,2,cv::Scalar(0,200,200),-1);
+    // }
+
+    for (int j = 0; j < vDMatches12.size(); j++)
+    {
+        cv::DMatch subMatch = vDMatches12[j];
+        cv::circle(imForSave,mvCurrentBirdKeys[subMatch.trainIdx].pt,2,cv::Scalar(0,0,200),-1);
+    }
+
+    return imForSave;
+}
+
 void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
 {
     stringstream s;
@@ -216,7 +275,9 @@ void FrameDrawer::Update(Tracking *pTracker)
     if (bHaveBird)
     {
         pTracker->mCurrentFrame.mBirdviewImg.copyTo(mBirdIm);
+        pTracker->mCurrentFrame.mBirdColor.copyTo(mBirdColor);
         pTracker->mCurrentFrame.mBirdviewMask.copyTo(mBirdMask);
+        pTracker->mCurrentFrame.mBirdviewContourICP.copyTo(mICP);
         mvCurrentBirdKeys = pTracker->mCurrentFrame.mvKeysBird;
 
         pTracker->tmpRefFrame->mBirdviewImg.copyTo(RefBirdIm);

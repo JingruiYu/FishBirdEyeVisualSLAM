@@ -731,12 +731,12 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
                     }
                     lpKFtoCheck.push_back(pChild);
                     idx++;
-                    cout << "idx: " << idx << " / sChilds.size(): " << sChilds.size() << endl;
+                    cout << "idx: " << idx << " / sChilds.size(): " << sChilds.size() << " -pChildKFID: " << pChild->mnId << endl;
                 }
                 pKF->mTcwBefGBA = pKF->GetPose();
                 pKF->SetPose(pKF->mTcwGBA);
                 lpKFtoCheck.pop_front();
-                cout << "idx2: " << idx2 << " / lpKFtoCheck.size(): " << lpKFtoCheck.size() << endl;
+                cout << "idx2: " << idx2++ << " / lpKFtoCheck.size(): " << lpKFtoCheck.size() << " -lpKFtoCheckKFID: " << pKF->mnId << endl;
             }
             
             cout << "Updating map ... 4 " << endl;
