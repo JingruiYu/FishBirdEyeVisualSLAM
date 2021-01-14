@@ -55,6 +55,8 @@ public:
     cv::Mat GetStereoCenter();
     cv::Mat GetRotation();
     cv::Mat GetTranslation();
+    cv::Mat GetGTPose();
+    cv::Mat GetGTCenter();
 
     // Bag of Words Representation
     void ComputeBoW();
@@ -126,6 +128,7 @@ public:
 
     void AddMapPointBird(MapPointBird* pMPB, const size_t &idx);
 
+    void GetICPoints(std::vector<cv::Mat>& vICPBs);
     // The following variables are accesed from only 1 thread or never change (no mutex needed).
 public:
 
@@ -255,6 +258,8 @@ protected:
     std::mutex mMutexPose;
     std::mutex mMutexConnections;
     std::mutex mMutexFeatures;
+
+    cv::Mat mBirdviewContourICP;
 };
 
 } //namespace ORB_SLAM

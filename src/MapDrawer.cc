@@ -55,7 +55,7 @@ void MapDrawer::DrawMapPoints()
 
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
-    glColor3f(0.0,0.0,0.0);
+    glColor3f(0.0,1.0,0.0);
 
     for(size_t i=0, iend=vpMPs.size(); i<iend;i++)
     {
@@ -68,7 +68,7 @@ void MapDrawer::DrawMapPoints()
 
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
-    glColor3f(1.0,0.0,0.0);
+    glColor3f(0.0,1.0,0.0);
 
     for(set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
     {
@@ -83,7 +83,7 @@ void MapDrawer::DrawMapPoints()
 
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
-    glColor3f(0.0,1.0,0.0);
+    glColor3f(0.1,0.1,0.1);
 
     for(size_t i=0, iend=vpMPBs.size(); i<iend;i++)
     {
@@ -140,6 +140,21 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
             glEnd();
 
             glPopMatrix();
+
+            if (pKF->mnId % 5 == 0)
+            {
+                std::vector<cv::Mat> vICPBs;
+                pKF->GetICPoints(vICPBs);
+                glPointSize(mPointSize);
+                glBegin(GL_POINTS);
+                glColor3f(0.8,0.8,0.8);
+                for(size_t i=0, iend=vICPBs.size(); i<iend;i = i+2)
+                {
+                    cv::Mat pos = vICPBs[i];
+                    glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+                }
+                glEnd();
+            }
         }
     }
 

@@ -121,10 +121,10 @@ cv::Mat FrameDrawer::DrawFrame()
         }
     }
 
-    cv::Mat imWithInfo;
-    DrawTextInfo(im,state, imWithInfo);
+    // cv::Mat imWithInfo;
+    // DrawTextInfo(im,state, imWithInfo);
 
-    return imWithInfo;
+    return im;
 }
 
 cv::Mat FrameDrawer::DrawBird()
@@ -170,7 +170,6 @@ cv::Mat FrameDrawer::DrawBirdSave()
     cv::Mat imForSave;
     imForSave = mBirdColor.clone();
 
-
     for (size_t row = 0; row < mICP.rows; row++)
     {
         for (size_t col = 0; col < mICP.cols; col++)
@@ -190,7 +189,7 @@ cv::Mat FrameDrawer::DrawBirdSave()
 
             if (label == 1)
             {
-                imForSave.at<cv::Vec3b>(row, col) = cv::Vec3b(200, 0, 0);
+                imForSave.at<cv::Vec3b>(row, col) = cv::Vec3b(0, 0, 200);
             }
             else
             {
@@ -205,11 +204,11 @@ cv::Mat FrameDrawer::DrawBirdSave()
 
     // for (int i = 0; i < mvCurrentBirdKeys.size(); i++)
     // {
-    //     cv::Point2f pt1,pt2;
-    //     pt1.x=mvCurrentBirdKeys[i].pt.x-r;
-    //     pt1.y=mvCurrentBirdKeys[i].pt.y-r;
-    //     pt2.x=mvCurrentBirdKeys[i].pt.x+r;
-    //     pt2.y=mvCurrentBirdKeys[i].pt.y+r;
+    //     // cv::Point2f pt1,pt2;
+    //     // pt1.x=mvCurrentBirdKeys[i].pt.x-r;
+    //     // pt1.y=mvCurrentBirdKeys[i].pt.y-r;
+    //     // pt2.x=mvCurrentBirdKeys[i].pt.x+r;
+    //     // pt2.y=mvCurrentBirdKeys[i].pt.y+r;
             
     //     // cv::rectangle(imForSave,pt1,pt2,cv::Scalar(0,255,0));
     //     cv::circle(imForSave,mvCurrentBirdKeys[i].pt,2,cv::Scalar(0,200,200),-1);
@@ -218,7 +217,7 @@ cv::Mat FrameDrawer::DrawBirdSave()
     for (int j = 0; j < vDMatches12.size(); j++)
     {
         cv::DMatch subMatch = vDMatches12[j];
-        cv::circle(imForSave,mvCurrentBirdKeys[subMatch.trainIdx].pt,2,cv::Scalar(0,0,200),-1);
+        cv::circle(imForSave,mvCurrentBirdKeys[subMatch.trainIdx].pt,2,cv::Scalar(200,0,0),-1);
     }
 
     return imForSave;

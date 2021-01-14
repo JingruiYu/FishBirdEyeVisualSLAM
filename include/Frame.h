@@ -119,7 +119,15 @@ public:
 
     int GetBirdMapPointsNum();
 
+    void CalExTime();
+
+    void genEdgesPC();
+
+    bool nearEdges(cv::KeyPoint kpt);
+
 public:
+    static std::vector<double> vTimesFront;
+    static std::vector<double> vTimesBird;
     // Vocabulary used for relocalization.
     ORBVocabulary* mpORBvocabulary;
 
@@ -176,6 +184,8 @@ public:
     std::vector<bool> mvBirdOutlier;
     cv::Mat mDescriptorsBird;
 
+    std::vector<cv::Point2f> mEdgeSign;
+    std::vector<cv::Point2f> mEdgeFree;
     // Corresponding stereo coordinate and depth for each keypoint.
     // "Monocular" keypoints have a negative value.
     std::vector<float> mvuRight;
@@ -250,6 +260,8 @@ private:
     // Only for the RGB-D case. Stereo must be already rectified!
     // (called in the constructor).
     void UndistortKeyPoints();
+
+    void GuidenceKeyBirdPts(std::vector<cv::KeyPoint>& preKeysBird);
 
     // Computes image bounds for the undistorted image (called in the constructor).
     void ComputeImageBounds(const cv::Mat &imLeft);

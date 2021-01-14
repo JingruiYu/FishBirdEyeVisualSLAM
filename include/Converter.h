@@ -64,6 +64,7 @@ public:
     static cv::Mat GetTci1ci2FromOdometer(const cv::Vec3d &odomPose1, const cv::Vec3d &odomPose2);
 
     static cv::Point3f BirdPixel2BaseXY(const cv::KeyPoint &kp);
+    static cv::Point3f BirdPixel2BaseXY(const cv::Point2f &pt);
     static cv::Point2f BaseXY2BirdPixel(const cv::Point3f &p);
     static cv::Point3f BaseXY2CamXYZ(cv::Point3f p);
 };

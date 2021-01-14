@@ -61,7 +61,7 @@ void Viewer::Run()
     mbFinished = false;
     mbStopped = false;
 
-    pangolin::CreateWindowAndBind("ORB-SLAM2: Map Viewer",1024,768);
+    pangolin::CreateWindowAndBind("Multi-Information Fusion: Map Viewer",1024,768);
 
     // 3D Mouse handler requires depth testing to be enabled
     glEnable(GL_DEPTH_TEST);
@@ -92,7 +92,7 @@ void Viewer::Run()
     pangolin::OpenGlMatrix Twc;
     Twc.SetIdentity();
 
-    cv::namedWindow("ORB-SLAM2: Current Frame");
+    cv::namedWindow("Front_view");
 
     bool bFollow = true;
     bool bLocalizationMode = false;
@@ -140,7 +140,13 @@ void Viewer::Run()
         pangolin::FinishFrame();
 
         cv::Mat im = mpFrameDrawer->DrawFrame();
-        cv::imshow("ORB-SLAM2: Current Frame",im);
+        // stringstream ss;
+        // string imgName;
+        // ss << colorIdx;
+        // ss >> imgName;
+        // cv::imwrite("/home/yujr/Front_Bird/Data/up_longer/selectPts/"+imgName+".png",im);
+        // colorIdx++;
+        cv::imshow("Front_view",im);
 
         if (bHaveBird)
         {
@@ -149,18 +155,18 @@ void Viewer::Run()
             cv::Mat imBirdMatch = mpFrameDrawer->DrawBirdMatches();
             cv::Mat imBirdSave = mpFrameDrawer->DrawBirdSave();
 
-            cv::imshow("Bird_view",imBird);
+            // cv::imshow("Bird_view",imBird);
             // cv::imshow("Bird_view_mask",imBirdMask);
-            cv::imshow("Bird_view match",imBirdMatch);
+            // cv::imshow("Bird_view match",imBirdMatch);
 
-            cv::imshow("Bird for save",imBirdSave);
+            cv::imshow("Surround_view",imBirdSave);
 
-            stringstream ss;
-            string imgName;
-            ss << colorIdx;
-            ss >> imgName;
-            cv::imwrite("/home/yujr/mono_brid_semantic/Data/saic_new_birdview3/color2/"+imgName+".png",imBirdSave);
-            colorIdx++;
+            // stringstream ss;
+            // string imgName;
+            // ss << colorIdx;
+            // ss >> imgName;
+            // cv::imwrite("/home/yujr/Front_Bird/Data/up_longer/selectPts/"+imgName+".png",imBirdSave);
+            // colorIdx++;
         }
 
         cv::waitKey(mT);

@@ -497,6 +497,8 @@ void Tracking::Track()
 
         tmpRefFrame = new Frame(mInitialFrame);
         mpFrameDrawer->Update(this);
+        // cv::Mat selectImg = mpFrameDrawer->DrawFrame();
+        // cv::imwrite("/home/yujr/Front_Bird/Data/up_longer/selectPts/"+std::to_string(mCurrentFrame.mnId)+".png",selectImg);
         tmpRefFrame = new Frame(mCurrentFrame);
 
         if (mState == OK)
@@ -555,6 +557,8 @@ void Tracking::Track()
 
                     if(BirdNeedKF())
                         CreateNewKeyFrame();
+                    
+                    mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
                 }                
             }
         }
@@ -670,6 +674,8 @@ void Tracking::Track()
 
         // Update drawer
         mpFrameDrawer->Update(this);
+        // cv::Mat selectImg = mpFrameDrawer->DrawFrame();
+        // cv::imwrite("/home/yujr/Front_Bird/Data/up_longer/selectPts/"+std::to_string(mCurrentFrame.mnId)+".png",selectImg);
 
         // If tracking were good, check if we insert a keyframe
         if(bOK)

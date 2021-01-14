@@ -44,7 +44,7 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
     mnMaxY(F.mnMaxY), mK(F.mK), mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB),
     mpORBvocabulary(F.mpORBvocabulary), mbFirstConnection(true), mpParent(NULL), mbNotErase(false),
     mbToBeErased(false), mbBad(false), mHalfBaseline(F.mb/2), mpMap(pMap),
-    mGtPose(F.mGtPose),mbHaveOdom(F.mbHaveOdom)
+    mGtPose(F.mGtPose),mbHaveOdom(F.mbHaveOdom),mBirdviewContourICP(F.mBirdviewContourICP)
 {
     mnId=nNextId++;
 
@@ -154,6 +154,28 @@ cv::Mat KeyFrame::GetTranslation()
     return Tcw.rowRange(0,3).col(3).clone();
 }
 
+cv::Mat KeyFrame::GetGTPose()
+{
+    double x = mGtPose[0], y = mGtPose[1], theta = mGtPose[2];
+    cv::Mat Twb=(cv::Mat_<float>(4,4)<< cos(theta),-sin(theta),0,x,
+                                        sin(theta), cos(theta),0,y,
+                                        0,            0,      1, 0,
+                                        0,            0,      0, 1);
+
+    return Twb.clone();
+}
+
+cv::Mat KeyFrame::GetGTCenter()
+{
+    double x = mGtPose[0], y = mGtPose[1], theta = mGtPose[2];
+
+    cv::Mat twb=(cv::Mat_<float>(3,1)<< x,
+                                        y,
+                                        0);
+
+    return twb.clone();
+}
+
 void KeyFrame::AddConnection(KeyFrame *pKF, const int &weight)
 {
     {
@@ -257,6 +279,34 @@ void KeyFrame::AddMapPointBird(MapPointBird *pMPB, const size_t &idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     mvpMapPointsBird[idx]=pMPB;
+}
+
+void KeyFrame::GetICPoints(std::vector<cv::Mat>& vICPBs)
+{
+    for (size_t row = 0; row < mBirdviewContourICP.rows; row++)
+    {
+        for (size_t col = 0; col < mBirdviewContourICP.cols; col++)
+        {
+            int label = -1;
+
+            if (mBirdviewContourICP.at<uchar>(row, col) < 10)
+                continue; // free
+            else if (mBirdviewContourICP.at<uchar>(row, col) < 150)
+                label = 0; // edge
+            else
+                label = 1; // freespace
+            
+            cv::Point2f pt;
+            pt.x = col;
+            pt.y = row;
+
+            cv::Point3f p3d = Converter::BirdPixel2BaseXY(pt);
+            cv::Mat pc(Converter::BaseXY2CamXYZ(p3d));
+            cv::Mat pw = Twc.rowRange(0,3).colRange(0,3) * pc + Twc.rowRange(0,3).col(3);
+            vICPBs.push_back(pw);            
+            // cv::circle(imForSave,pt,0.5,cv::Scalar(0,200,0),-1);
+        }
+    }  
 }
 
 void KeyFrame::EraseMapPointMatch(const size_t &idx)

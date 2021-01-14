@@ -162,15 +162,15 @@ int main(int argc, char **argv)
 #else
         std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
 #endif
-        if (ni % 250 == 0 || ni > 1110 || ni < 50)
+        if (ni % 250 == 0 || ni < 50)
             cout << endl << "it is frame ..................... " << ni << endl;
             
         // Pass the image to the SLAM system
         //SLAM.TrackMonocular(im,tframe);
         SLAM.TrackMonocularWithOdom(im,birdview,birdviewmask,birdviewContour,birdviewContourICP,gtPose,odomPose,tframe);
 
-        if (ni == 400)  
-            getchar();
+        // if (ni == 400)  
+        //     getchar();
 
 #ifdef COMPILEDWITHC11
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
@@ -212,7 +212,7 @@ int main(int argc, char **argv)
     // Save camera trajectory
     // SLAM.SaveTrajectoryTUM("FrameTrajectoryMonoEncoder-1.txt");
     // SLAM.SaveTrajectoryTUM("TrajectoryTUM.txt");
-    SLAM.SaveKeyFrameTrajectoryOdomTUM("KeyFrameTrajectoryMonoEncoder-1.txt");
+    SLAM.SaveKeyFrameTrajectoryOdomTUM("/home/yujr/Front_Bird/keyFramePose.txt");
 
     return 0;
 }

@@ -25,7 +25,7 @@
 
 namespace ORB_SLAM2
 {
-
+std::vector<double> Frame::vTimesFront, Frame::vTimesBird;
 long unsigned int Frame::nNextId=0;
 bool Frame::mbInitialComputations=true;
 float Frame::cx, Frame::cy, Frame::fx, Frame::fy, Frame::invfx, Frame::invfy;
@@ -54,6 +54,7 @@ Frame::Frame(const Frame &frame)
      mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn), 
      mvKeysBird(frame.mvKeysBird), mvKeysBirdCamXYZ(frame.mvKeysBirdCamXYZ), mvKeysBirdBaseXY(frame.mvKeysBirdBaseXY), 
      mvpMapPointsBird(frame.mvpMapPointsBird), mDescriptorsBird(frame.mDescriptorsBird), mvBirdOutlier(frame.mvBirdOutlier),
+     mEdgeSign(frame.mEdgeSign), mEdgeFree(frame.mEdgeFree),
      mvuRight(frame.mvuRight), mvDepth(frame.mvDepth), 
      mImg(frame.mImg), mBirdColor(frame.mBirdColor), mBirdviewImg(frame.mBirdviewImg), mBirdviewMask(frame.mBirdviewMask),
      mBirdviewContour(frame.mBirdviewContour), mBirdviewContourICP(frame.mBirdviewContourICP),
@@ -304,8 +305,12 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &Bird
     mvLevelSigma2 = mpORBextractorLeft->GetScaleSigmaSquares();
     mvInvLevelSigma2 = mpORBextractorLeft->GetInverseScaleSigmaSquares();
 
+// std::chrono:: steady_clock::time_point t1 = std::chrono::steady_clock::now();
     // ORB extraction
     ExtractORB(0,imGray);
+// std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+// double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+// vTimesFront.push_back(ttrack);
 
     N = mvKeys.size();
 
@@ -328,10 +333,13 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &Bird
     mBirdviewContour = birdviewContour.clone();
     mBirdviewContourICP = birdviewContourICP.clone();
 
+// std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     cv::Ptr<cv::ORB> extractorBird = cv::ORB::create(2000);
-    extractorBird->detect(mBirdviewImg,mvKeysBird,mBirdviewMask);
+    std::vector<cv::KeyPoint> preKeysBird;
+    extractorBird->detect(mBirdviewImg,preKeysBird,mBirdviewMask);
     // extractorBird->detect(mBirdviewImg,mvKeysBird);
 
+    GuidenceKeyBirdPts(preKeysBird);
     Nbird = mvKeysBird.size();
 
     vector<cv::Point2f> vKeysBird(Nbird);
@@ -343,7 +351,11 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &Bird
     for(int k=0;k<Nbird;k++)
         mvKeysBird[k].pt = vKeysBird[k];
 
+
     extractorBird->compute(mBirdviewImg,mvKeysBird,mDescriptorsBird);
+// std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
+// ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t4 - t3).count();
+// vTimesBird.push_back(ttrack);
 
     mvpMapPointsBird = vector<MapPointBird*>(Nbird,static_cast<MapPointBird*>(NULL));  
     mvBirdOutlier = vector<bool>(Nbird,true);
@@ -362,6 +374,8 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &BirdGray, const cv::Mat &Bird
 
 
     AssignFeaturesToGrid();
+
+    // CalExTime();
 }
 
 void Frame::AssignFeaturesToGrid()
@@ -652,6 +666,76 @@ void Frame::UndistortKeyPoints()
         kp.pt.y=mat.at<float>(i,1);
         mvKeysUn[i]=kp;
     }
+}
+
+void Frame::GuidenceKeyBirdPts(std::vector<cv::KeyPoint>& preKeysBird)
+{
+    genEdgesPC();
+
+    for (size_t i=0; i<preKeysBird.size(); i++)
+    {
+        cv::KeyPoint kpt = preKeysBird[i];
+        if (nearEdges(kpt))
+        {
+            mvKeysBird.push_back(kpt);
+        }        
+        // std::cout << "GuidenceKeyBirdPts: " << mnId << " - " <<  i << std::endl;
+    }
+}
+
+void Frame::genEdgesPC()
+{
+    for (size_t row = 0; row < mBirdviewContourICP.rows; row++)
+    {
+        for (size_t col = 0; col < mBirdviewContourICP.cols; col++)
+        {
+            int label = -1;
+
+            if (mBirdviewContourICP.at<uchar>(row, col) < 10)
+                continue; // free
+            else if (mBirdviewContourICP.at<uchar>(row, col) < 150)
+                label = 0; // edge
+            else
+                label = 1; // freespace
+            
+            cv::Point2f pt;
+            pt.x = col;
+            pt.y = row;
+
+            if (label)
+            {
+                mEdgeFree.push_back(pt);
+            }
+            else
+            {
+                mEdgeSign.push_back(pt);
+            }        
+        }
+    }  
+}
+
+bool Frame::nearEdges(cv::KeyPoint kpt)
+{
+    int r = 10;
+    float pt1x = (kpt.pt.x-r) > 0 ? (kpt.pt.x-r) : 0;
+    float pt1y = (kpt.pt.y-r) > 0 ? (kpt.pt.y-r) : 0;
+    float pt2x = (kpt.pt.x+r) < mBirdviewContourICP.cols ? (kpt.pt.x+r) : mBirdviewContourICP.cols;
+    float pt2y = (kpt.pt.y+r) < mBirdviewContourICP.rows ? (kpt.pt.y+r) : mBirdviewContourICP.rows;
+    
+    for (size_t row = pt1x; row < pt2x; row++)
+    {
+        for (size_t col = pt1y; col < pt2y; col++)
+        {
+            if (mBirdviewContourICP.at<uchar>(row, col) < 10)
+                continue; // free
+            else if (mBirdviewContourICP.at<uchar>(row, col) < 150)
+                return true; // edge
+            else
+                return true; // freespace
+        }
+    }
+
+    return false;
 }
 
 void Frame::ComputeImageBounds(const cv::Mat &imLeft)
@@ -1005,6 +1089,25 @@ int Frame::GetBirdMapPointsNum()
     }
 
     return sum;
+}
+
+void Frame::CalExTime()
+{
+    sort(vTimesFront.begin(),vTimesFront.end());
+    sort(vTimesBird.begin(),vTimesBird.end());
+    double fronttime = 0;
+    double birdtime = 0;
+    int nImg = vTimesBird.size();
+    for(int ni=0; ni<nImg; ni++)
+    {
+        fronttime+=vTimesFront[ni];
+        birdtime+=vTimesBird[ni];
+    }
+    cout << "-------" << endl << endl;
+    cout << "Front median tracking time: " << vTimesFront[nImg/2] << endl;
+    cout << "Bird median tracking time: " << vTimesBird[nImg/2] << endl;
+    cout << "Front mean tracking time: " << fronttime/nImg << endl;
+    cout << "Bird mean tracking time: " << birdtime/nImg << endl;
 }
 
 } //namespace ORB_SLAM
